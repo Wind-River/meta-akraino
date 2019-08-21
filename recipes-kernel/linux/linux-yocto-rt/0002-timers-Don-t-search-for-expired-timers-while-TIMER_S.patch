@@ -1,0 +1,91 @@
+From fd9561fd0ea14ee2d285a819b795c14a084a8917 Mon Sep 17 00:00:00 2001
+From: Haris Okanovic <haris.okanovic@ni.com>
+Date: Fri, 3 Feb 2017 17:26:44 +0100
+Subject: [PATCH 2/2] timers: Don't search for expired timers while
+ TIMER_SOFTIRQ is scheduled
+
+This change avoids needlessly searching for more timers in
+run_local_timers() (hard interrupt context) when they can't fire.
+For example, when ktimersoftd/run_timer_softirq() is scheduled but
+preempted due to cpu contention. When it runs, run_timer_softirq() will
+discover newly expired timers up to current jiffies in addition to
+firing previously expired timers.
+
+However, this change also adds an edge case where non-hrtimer firing
+is sometimes delayed by an additional tick. This is acceptable since we
+don't make latency guarantees for non-hrtimers and would prefer to
+minimize hard interrupt time instead.
+
+Upstream-Status: Submitted [https://lore.kernel.org/patchwork/patch/743493/]
+
+Signed-off-by: Haris Okanovic <haris.okanovic@ni.com>
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ kernel/time/timer.c | 21 +++++++++++++++++++--
+ 1 file changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/kernel/time/timer.c b/kernel/time/timer.c
+index ef592b3..4d86211 100644
+--- a/kernel/time/timer.c
++++ b/kernel/time/timer.c
+@@ -207,6 +207,7 @@ struct timer_base {
+ 	unsigned int		cpu;
+ 	bool			is_idle;
+ 	bool			must_forward_clk;
++	bool			block_softirq;
+ 	DECLARE_BITMAP(pending_map, WHEEL_SIZE);
+ 	struct hlist_head	vectors[WHEEL_SIZE];
+ 	struct hlist_head	expired_lists[LVL_DEPTH];
+@@ -1439,9 +1440,11 @@ static int __collect_expired_timers(struct timer_base *base)
+ 
+ 	/*
+ 	 * expire_timers() must be called at least once before we can
+-	 * collect more timers.
++	 * collect more timers. We should never hit this case unless
++	 * TIMER_SOFTIRQ got raised without expired timers.
+ 	 */
+-	if (base->expired_levels)
++	if (WARN_ONCE(base->expired_levels,
++			"Must expire collected timers before collecting more"))
+ 		return base->expired_levels;
+ 
+ 	clk = base->clk;
+@@ -1789,6 +1792,9 @@ static __latent_entropy void run_timer_softirq(struct softirq_action *h)
+ 	__run_timers(base);
+ 	if (IS_ENABLED(CONFIG_NO_HZ_COMMON))
+ 		__run_timers(this_cpu_ptr(&timer_bases[BASE_DEF]));
++
++	/* Allow new TIMER_SOFTIRQs to get scheduled by run_local_timers() */
++	base->block_softirq = false;
+ }
+ 
+ /*
+@@ -1799,6 +1805,14 @@ void run_local_timers(void)
+ 	struct timer_base *base = this_cpu_ptr(&timer_bases[BASE_STD]);
+ 
+ 	hrtimer_run_queues();
++
++	/*
++	 * Skip if TIMER_SOFTIRQ is already running on this CPU, since it
++	 * will find and expire all timers up to current jiffies.
++	 */
++	if (base->block_softirq)
++		return;
++
+ 	/* Raise the softirq only if required. */
+ 	if (time_before(jiffies, base->clk) || !tick_find_expired(base)) {
+ 		if (!IS_ENABLED(CONFIG_NO_HZ_COMMON))
+@@ -1807,7 +1821,10 @@ void run_local_timers(void)
+ 		base++;
+ 		if (time_before(jiffies, base->clk) || !tick_find_expired(base))
+ 			return;
++		base--;
+ 	}
++
++	base->block_softirq = true;
+ 	raise_softirq(TIMER_SOFTIRQ);
+ }
+ 
+-- 
+2.7.4
+
