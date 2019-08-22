@@ -9,9 +9,6 @@
 |5|hostcli|python|
 |6|hw-detector|python|
 |7|image-provision|config files|
-|8|ironic|python|
-|9|ironicclient|python|
-|10|ironic-virtmedia-driver|python|
 |11|lockcli|python|
 |12|manifest|config files|
 |13|monitoring|python, service|
