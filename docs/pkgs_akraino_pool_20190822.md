@@ -2,9 +2,6 @@
 
 | #     |Repo name|Comments|
 |-------|---------|--------|
-|1|access-management |python, service|
-|2|cm-plugins|python|
-|3|config-manager|python, service|
 |4|distributed-state-server |python, service|
 |5|hostcli|python|
 |6|hw-detector|python|
