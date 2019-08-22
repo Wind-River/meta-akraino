@@ -22,6 +22,9 @@
 |18|python-peewee|python|
 
 ## ensible packages
+
+| #     |Repo name|Comments|
+|-------|---------|--------|
 |1|ansible-role-ntp|ansible|
 |2|caas-install|ansible, scripts|
 |3|caas-lcm|ansible|
@@ -31,7 +34,7 @@
 |7|openstack-ansible-galera_client|ansible|
 |8|openstack-ansible-galera_server|ansible|
 |9|openstack-ansible-haproxy_server|ansible|
-|10|openstack-ansible-memcached_server ansible|
+|10|openstack-ansible-memcached_server|ansible|
 |11|openstack-ansible-openstack_openrc|ansible|
 |12|openstack-ansible-os_ironic|ansible|
 |13|openstack-ansible-os_keystone|ansible|
@@ -41,6 +44,9 @@
 |17|storage|ansible|
 
 ## docker conainer packages
+
+| #     |Repo name|Comments|
+|-------|---------|--------|
 |1|caas-cpupooler|docker container: alpine and centos|
 |2|caas-danm|docker container: alpine and centos|
 |3|caas-etcd|docker container: alpine|
@@ -56,6 +62,9 @@
 |13|start-menu|scripts and service|
 
 ## not proper for porting
+
+| #     |Repo name|Comments|
+|-------|---------|--------|
 |1|build-tools|python and shell scripts, used to generate CentOS base REC image, not proper for porting|
 |2|ipa-deployer|ISO image based on CentOS-7, not proper for porting|
 |3|rec|scripts and instruction doc for REC, maybe not proper for porting|
