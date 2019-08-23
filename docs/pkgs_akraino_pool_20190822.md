@@ -3,7 +3,6 @@
 | #     |Repo name|Comments|
 |-------|---------|--------|
 |4|distributed-state-server |python, service|
-|5|hostcli|python|
 |6|hw-detector|python|
 |7|image-provision|config files|
 |11|lockcli|python|
