@@ -12,7 +12,6 @@
 |15|python-ilorest-library|python|
 |16|rpmbuilder|python|
 |17|yarf|python, service|
-|18|python-peewee|python|
 
 ## ensible packages
 
