@@ -12,7 +12,7 @@ S = "${WORKDIR}/git/src"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/hostcli.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH}"
 
-inherit setuptools 
+inherit setuptools akraino-version
 
 DEPENDS += " \
         python-pip \
