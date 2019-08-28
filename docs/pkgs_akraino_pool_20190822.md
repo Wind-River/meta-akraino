@@ -17,11 +17,6 @@
 
 | #     |Repo name|Comments|
 |-------|---------|--------|
-|1|ansible-role-ntp|ansible|
-|2|caas-install|ansible, scripts|
-|3|caas-lcm|ansible|
-|4|caas-security|ansible|
-|5|infra-ansible|andible, scripts, service|
 |6|openstack-ansible|ansible, scripts|
 |7|openstack-ansible-galera_client|ansible|
 |8|openstack-ansible-galera_server|ansible|
