@@ -1,0 +1,612 @@
+diff --git a/handlers/main.yml b/handlers/main.yml
+index d18df56..6b58a86 100644
+--- a/handlers/main.yml
++++ b/handlers/main.yml
+@@ -1,3 +1,14 @@
+ ---
++- name: add ntp keys
++  ntp:
++    auth_type: "{{ time.auth_type }}"
++    ntpservers: "{{ ntp_config_server }}"
++    hosts: "{{ hosts }}"
++    filepath: "{{ time.serverkeys_path }}"
++
++- name: create redundant fallback ntp servers
++  fallback_ntp_servers:
++    hosts: "{{ hosts }}"
++
+ - name: restart ntp
+   service: name={{ ntp_service_name }} state=restarted
+diff --git a/library/fallback_ntp_servers.py b/library/fallback_ntp_servers.py
+new file mode 100644
+index 0000000..7d7907e
+--- /dev/null
++++ b/library/fallback_ntp_servers.py
+@@ -0,0 +1,73 @@
++#!/bin/python
++# Copyright (C) 2017 Nokia
++# All rights reserved
++
++from ansible.module_utils.basic import AnsibleModule
++import socket
++
++DOCUMENTATION = '''
++module: fallback_ntp_servers
++short_description: adding peers and fallback option
++description: Adding peers and an optional fallback option to the controllers.
++author: nokia.com
++options:
++    option-name: hosts
++    description: a list of controller hostnames
++    type: list
++'''
++
++def get_hostname():
++    return socket.gethostname().split('.')[0]
++
++def get_controllers(hosts):
++    controllers = []
++    for item in hosts:
++        if "controller" in hosts[item]['service_profiles']:
++            controllers.append(item)
++    return controllers
++
++def is_installation_host(hosts):
++    hostname = get_hostname()
++    try:
++        if hosts[hostname]['installation_host']:
++            return True
++    except KeyError:
++        return False
++    return False
++
++def add_peers(hosts):
++    hosts.remove(get_hostname())
++    with open("/etc/ntp.conf") as cnf:
++        content = cnf.readlines()
++    for index, line in enumerate(content):
++        if "server" in line:
++            for peer in hosts:
++                content.insert(index, "peer  %s\n" % peer)
++            break
++    with open("/etc/ntp.conf", "w") as cnf:
++        for line in content:
++            cnf.write(line)
++
++def add_fallback(hosts):
++    if is_installation_host(hosts):
++        with open("/etc/ntp.conf") as cnf:
++            content = cnf.readlines()
++        for index, line in enumerate(content):
++            if "peer" in line:
++                content.insert(index, "fudge  127.127.1.0  stratum  10\n")
++                break
++        with open("/etc/ntp.conf", "w") as cnf:
++            for line in content:
++                cnf.write(line)
++
++def main():
++    module_args = dict(hosts=dict(type='dict', required=True))
++    module = AnsibleModule(argument_spec=module_args)
++    controllers = get_controllers(module.params['hosts'])
++    if get_hostname() in controllers:
++        add_peers(controllers)
++        add_fallback(module.params['hosts'])
++    module.exit_json(msg="configured")
++
++if __name__ == "__main__":
++    main()
+diff --git a/library/ntp.py b/library/ntp.py
+new file mode 100644
+index 0000000..cef833e
+--- /dev/null
++++ b/library/ntp.py
+@@ -0,0 +1,476 @@
++#!/bin/python
++# Copyright (C) 2018 Nokia
++# All rights reserved
++
++import re
++import os
++from subprocess import check_output, CalledProcessError
++from ansible.module_utils.basic import AnsibleModule
++import socket
++import yaml
++import random
++import string
++import requests
++from urlparse import urlparse
++
++DOCUMENTATION = '''
++module: ntp
++short_description: configuring authentication
++description: Configuring the authentication of NTP servers.
++author: nokia.com
++options:
++    option-name: auth_type
++        description: the authentication type used by the server
++        type: string
++        choices: crypto, symmetric, none
++        default: crypto
++    option-name: hosts
++        description: a list of the controllers, in order to decide if the script is executed on controller or compute host
++        type: list
++    option-name: ntpservers
++        description: a list the NTP servers
++        type: list
++    option-name: filepath
++        description: the url of the required keys
++        type: string
++        default: empty string
++'''
++
++def get_hostname():
++    return socket.gethostname().split('.')[0]
++
++def get_controllers(hosts):
++    controllers = []
++    for item in hosts:
++        if "controller" in hosts[item]['service_profiles']:
++            controllers.append(item)
++    return controllers
++
++crypto_keys_dir = "/etc/ntp/crypto"
++crypto_parameter_file = crypto_keys_dir + "/params"
++symmetric_key_file = "/etc/ntp/keys"
++
++class KeyAuthDisabled(Exception):
++    pass
++
++class SymmetricKeyNotFound(Exception):
++    pass
++
++class NtpCryptoKeyHandler(object):
++    supported_types = {"iff": "ntpkey_iffkey_", "mv": "ntpkey_mvta_", "mvta": "ntpkey_mvta_", "gq": "ntpkey_gqkey_"}
++
++    def del_key(self, server, type):
++        filename = "%s/%s" % (crypto_keys_dir, self._get_filename(type, server))
++        os.remove(filename)
++        with open("/etc/ntp.conf") as cnf:
++            content = cnf.readlines()
++        regex = re.compile("\Aserver\s+%s\s+autokey" % server)
++        for index, line in enumerate(content):
++            if re.match(regex, line) is not None:
++                content.pop(index)
++                content.insert(index, "server %s\n" % server)
++        with open("/etc/ntp.conf", "w") as cnf:
++            for line in content:
++                cnf.write(line)
++
++    def add_key(self, servers):
++        self._remove_symmetric_keys()
++        self._enable_crypto_auth()
++        self._copy_keys(servers)
++        self._remove_old_client_keys(servers)
++        self._create_client_key()
++        self.set_key_permissions()
++
++    def update_client_certificate(self):
++        passwd = self._create_client_password()
++        os.system("cd %s; ntp-keygen -q %s" % (crypto_keys_dir, passwd))
++
++    def _enable_crypto_auth(self):
++        self._create_client_password()
++        with open("/etc/ntp.conf") as cnf:
++            content = cnf.readlines()
++        includefile_is_correct = False
++        keysdir_is_correct = False
++        for index, line in enumerate(content):
++            if line.startswith("crypto"):
++                content.pop(index)
++            elif line.startswith("includefile"):
++                self.replace_line_in_ntpconf(line, content, index, "includefile", crypto_parameter_file)
++                includefile_is_correct = True
++            elif line.startswith("keysdir"):
++                self.replace_line_in_ntpconf(line, content, index, "keysdir", crypto_keys_dir)
++                keysdir_is_correct = True
++        if not includefile_is_correct:
++            content.append("includefile %s\n" % crypto_parameter_file)
++        if not keysdir_is_correct:
++            content.append("keysdir %s\n" % crypto_keys_dir)
++        with open("/etc/ntp.conf", "w") as cnf:
++            for line in content:
++                cnf.write(line)
++
++    def replace_line_in_ntpconf(self, line, filecontent, index, linestarting, lineparameter):
++        if line.split()[1] != lineparameter:
++            filecontent.pop(index)
++            filecontent.insert(index, "%s %s\n" % (linestarting, lineparameter))
++
++    def _create_client_password(self):
++        if not os.path.exists(crypto_parameter_file):
++            os.mknod(crypto_parameter_file)
++        with open(crypto_parameter_file) as param:
++            content = param.readlines()
++        for line in content:
++            match = re.match(re.compile("\Acrypto\s+pw\s+"), line)
++            if match is not None:
++                return line.split(None, 2)[2]
++        randstr = ''.join([random.choice(string.ascii_letters + string.digits) for n in xrange(32)])
++        content.append("crypto pw %s\n" % randstr)
++        with open(crypto_parameter_file, "w") as param:
++            for line in content:
++                param.write(line)
++        return randstr
++
++    def _remove_symmetric_keys(self):
++        with open(symmetric_key_file, "w") as obj:
++            obj.truncate()
++
++    def _remove_old_client_keys(self, servers):
++        present_files = os.listdir(crypto_keys_dir)
++        possible_needed_files = [os.path.basename(crypto_parameter_file), os.path.basename(symmetric_key_file)]
++        for srv in servers:
++            possible_needed_files = possible_needed_files + self._get_all_supported_filenames(srv['server'])
++        for f in possible_needed_files:
++            try:
++                present_files.remove(f)
++            except ValueError:
++                pass
++        for f in present_files:
++            os.remove("%s/%s" % (crypto_keys_dir, f))
++
++    def _create_client_key(self):
++        clientpassword = self._create_client_password()
++        os.system("cd %s; ntp-keygen -H -c RSA-SHA1 -p %s" % (crypto_keys_dir, clientpassword))
++
++    def _copy_keys(self, servers):
++        print "copying keys"
++        for srv in servers:
++            self._remove_old_versions_of_key(str(srv["server"]))
++            filename = self._get_filename(str(srv["key"]["type"]), str(srv["server"]))
++            if not os.path.exists(filename):
++                os.mknod(filename)
++            with open("%s/%s" % (crypto_keys_dir, filename), "w") as keyfile:
++                for key in srv["key"]["keys"]:
++                    keyfile.write("-----BEGIN ENCRYPTED PRIVATE KEY-----\n")
++                    keyfile.write("%s\n" % key)
++                    keyfile.write("-----END ENCRYPTED PRIVATE KEY-----\n")
++
++    def _get_filename(self, type, server):
++        filename = "%s%s" % (NtpCryptoKeyHandler.supported_types[type], server)
++        return filename
++
++    def _get_all_supported_filenames(self, server):
++        filenames = []
++        for type in NtpCryptoKeyHandler.supported_types:
++            filenames.append(self._get_filename(type, server))
++        return filenames
++
++    def _remove_old_versions_of_key(self, server):
++        possible_filenames = self._get_all_supported_filenames(server)
++        for key in possible_filenames:
++            try:
++                os.remove("%s/%s" % (crypto_keys_dir, key))
++            except OSError:
++                pass
++
++    def set_key_permissions(self):
++        dircontent = os.listdir(crypto_keys_dir)
++        for f in dircontent:
++            os.chmod("%s/%s" % (crypto_keys_dir, f), 0600)
++
++
++class NtpSymmetricKeyHandler(object):
++
++    def add_key(self, key, server):
++        keys_file = symmetric_key_file
++        if not self._is_symmetric_key_auth_enabled():
++            self.enable_symmetric_key_auth(keys_file)
++        else:
++            keys_file = self._get_symmetric_key_file()
++        try:
++            key_id = self._get_symmetric_key_id(key, keys_file)
++        except SymmetricKeyNotFound:
++            key_id = self._find_highest_id(keys_file) + 1
++            with open(keys_file, "a") as keys:
++                keys.write("# %s\n" % server)
++                keys.write("%s  M  %s\n" % (key_id, key))
++        self._add_trustedkey(key_id)
++        self._add_controlkey(key_id)
++        self._add_requestkey(key_id)
++
++    def _enable_key_in_ntpconf(self, old, key_id):
++        is_replaced = False
++        key_id = str(key_id)
++        with open("/etc/ntp.conf", "r") as file:
++            buff = file.readlines()
++            for index, line in enumerate(buff):
++                if (line.startswith(old)) and (key_id not in line):
++                    buff[index] = line.rstrip('\n') + "  " + str(key_id) + "\n"
++                    is_replaced = True
++                    break
++                elif (line.startswith(old)) and (key_id in line):
++                    is_replaced = True
++                    break
++        if is_replaced:
++            with open("/etc/ntp.conf", "w") as file:
++                for line in buff:
++                    file.write(line)
++        else:
++            with open("/etc/ntp.conf", "a") as file:
++                file.write("%s  %s\n" % (old, str(key_id)))
++
++    def _add_trustedkey(self, key_id):
++        self._enable_key_in_ntpconf("trustedkey", str(key_id))
++
++    def _add_controlkey(self, key_id):
++        self._enable_key_in_ntpconf("controlkey", str(key_id))
++
++    def _add_requestkey(self, key_id):
++        self._enable_key_in_ntpconf("requestkey", str(key_id))
++
++    def _find_highest_id(self, keys_file):
++        ids = []
++        with open(keys_file) as keys:
++            for o in keys.readlines():
++                id = re.findall("^[0-9]+", o)
++                if len(id) > 0:
++                    ids.append(int(id[0]))
++        ids.sort()
++        if len(ids) != 0:
++            return ids[-1]
++        else:
++            return 0
++
++    def _is_symmetric_key_auth_enabled(self):
++        with open("/etc/ntp.conf") as cnf:
++            for line in cnf.read().split('\n'):
++                if line.startswith("keys"):
++                    return True
++        return False
++
++    def _get_symmetric_key_file(self):
++        with open("/etc/ntp.conf") as cnf:
++            for line in cnf.read().split('\n'):
++                if "keys" in line:
++                    return line.split()[1]
++        raise KeyAuthDisabled()
++
++    def _get_symmetric_key_id(self, key, keysfile=symmetric_key_file):
++        with open(keysfile) as keys:
++            for line in keys.read().split('\n'):
++                if key in line:
++                    return line.split()[0]
++        raise SymmetricKeyNotFound()
++
++    def enable_symmetric_key_auth(self, keys_loc=symmetric_key_file):
++        try:
++            self._get_symmetric_key_file()
++        except KeyAuthDisabled:
++            with open("/etc/ntp.conf", "a") as cnf:
++                cnf.write("keys %s\n" % keys_loc)
++
++
++class NtpServerHandler(object):
++
++    def __init__(self, auth_type):
++        if auth_type == "symmetric":
++            self.keyhandler = NtpSymmetricKeyHandler()
++        else:
++            self.keyhandler = NtpCryptoKeyHandler()
++        self.auth_type = auth_type
++
++    def delete_other_keys(self):
++        if os.path.exists(crypto_keys_dir):
++            dircontent = os.listdir(crypto_keys_dir)
++            for f in dircontent:
++                os.remove("%s/%s" % (crypto_keys_dir, f))
++
++    def delete_server(self, server):
++        with open("/etc/ntp.conf") as conf:
++            contents = conf.readlines()
++        for index, line in enumerate(contents):
++            if server in line:
++                contents.pop(index)
++                break
++        with open("/etc/ntp.conf", "w") as conf:
++            for line in contents:
++                conf.write(line)
++        self._restart_ntpd()
++
++    def add_server(self, servers):
++        self.delete_other_keys()
++        for srv in servers:
++            if self.auth_type != "none":
++                if self.auth_type == "symmetric":
++                    self.keyhandler.add_key(srv['key'], srv['server'])
++                else:
++                    self.keyhandler.add_key(servers)
++            self._insert_server_to_config(srv['server'], self.auth_type, srv['key'])
++
++    def _restart_ntpd(self):
++        os.system("systemctl restart ntpd")
++
++    def _insert_server_to_config(self, server, auth_type, key=None):
++        if auth_type == "symmetric":
++            keyfile = self.keyhandler._get_symmetric_key_file()
++            id = self.keyhandler._get_symmetric_key_id(key, keyfile)
++            serverline = "server  " + server + "  key  " + str(id) + '\n'
++        elif auth_type == "crypto":
++            serverline = "server  " + server + "  autokey\n"
++        else:
++            serverline = "server  " + server + '\n'
++        with open("/etc/ntp.conf") as cnf:
++            contents = cnf.readlines()
++        server_was_found = False
++        for index, line in enumerate(contents):
++            if (server in line) and (line.startswith("server")):
++                contents[index] = serverline
++                server_was_found = True
++                break
++        if not server_was_found:
++            index = 0
++            for line in contents:
++                if line.startswith("server"):
++                    break
++                index += 1
++            contents.insert(index, serverline)
++        with open("/etc/ntp.conf", "w") as cnf:
++            for line in contents:
++                cnf.write(line)
++
++    def get_ntp_status(self):
++        try:
++            print check_output(["systemctl", "status", "ntpd"])
++        except CalledProcessError as e:
++            print e.output
++        try:
++            print check_output(["ntpstat", "-u"])
++        except CalledProcessError as e:
++            print e.output
++        try:
++            print check_output(["ntpq", "-c", "as"])
++        except CalledProcessError as e:
++            print e.output
++
++def find_old_crypto_keys(remaining_servers):
++    files = os.listdir(crypto_keys_dir)
++    found_keys = []
++    for f in files:
++        for s in remaining_servers:
++            if 'ntpkey_' in f and s in f:
++                with open("%s/%s" % (crypto_keys_dir, f)) as keyfcnt:
++                    content = keyfcnt.readlines()
++                    regex = re.compile("-----BEGIN ENCRYPTED PRIVATE KEY-----\n|-----END ENCRYPTED PRIVATE KEY-----\n")
++                    keycont = ''.join(content)
++                    raw_keys = re.split(regex, keycont)
++                    raw_keys = filter(None, raw_keys)
++                    if f == 'ntpkey_iffkey_%s' % s:
++                        type = 'iff'
++                    elif f == 'ntpkey_gqkey_%s' % s:
++                        type = 'gq'
++                    elif f == 'ntpkey_mvta_%s' % s:
++                        type = 'mv'
++                    else:
++                        raise Exception("Something is wrong with the filename %s/%s" % (crypto_keys_dir, f))
++                    found_keys.append({'server': s, 'key': {'type': type, 'keys': raw_keys}})
++    return found_keys
++
++
++
++def find_old_symmetric_keys(remaining_servers):
++    keyfile = NtpSymmetricKeyHandler()._get_symmetric_key_file()
++    retlist = []
++    with open(keyfile) as kf:
++        content = kf.readlines()
++    for srv in remaining_servers:
++        if "# %s" % srv in content:
++            try:
++                index = content.index("# %s" % srv)
++                key = content[index + 1].split()[2]
++                retlist.append({"server": srv, "key": key})
++            except ValueError:
++                pass
++    return retlist
++
++
++def get_ntp_servers(url, ntpservers, auth_type):
++    file_reachable = True
++    servers = []
++    if url.startswith("file://"):
++        path = url.lstrip("file://")
++        try:
++            with open(path) as f:
++                f_content = f.read()
++        except IOError:
++            file_reachable = False
++    else:
++        try:
++            r = requests.get(url)
++            if r.status_code != 200:
++                raise requests.exceptions.ConnectionError()
++            f_content = r.content
++        except requests.exceptions.ConnectionError:
++            file_reachable = False
++    if file_reachable:
++        yaml_content = yaml.load(f_content)
++        for item in yaml_content:
++            srv = item.keys()[0]
++            if srv in ntpservers:
++                element = {"server": srv, "key": item[srv]}
++                servers.append(element)
++    found_servers = [item['server'] for item in servers]
++    if len(found_servers) != len(ntpservers):
++        remaining_servers = [item for item in ntpservers if item not in found_servers]
++        if auth_type == "crypto":
++            leftover_servers = find_old_crypto_keys(remaining_servers)
++        elif auth_type == "symmetric":
++            leftover_servers = find_old_symmetric_keys(remaining_servers)
++        else:
++            raise Exception("Unknown authentication type for NTP!")
++        servers = servers + leftover_servers
++        if len(servers) != len(ntpservers):
++            raise Exception("Something must be messed up in your config. The NTP servers provided by your key file and by your configuration doesn't match!")
++    return servers
++
++
++def remove(url):
++    o = urlparse(url)
++    if o.scheme == "file":
++        os.remove(o.path)
++
++
++
++def main():
++    module_args = dict(auth_type=dict(type='str', required=True),
++                       hosts=dict(type='dict', required=True),
++                       ntpservers=dict(type='list', required=True),
++                       filepath=dict(type='str', required=True))
++    module = AnsibleModule(argument_spec=module_args)
++    controllers = get_controllers(module.params['hosts'])
++    hostname = get_hostname()
++    if hostname not in controllers:
++        remove(module.params['filepath'])
++        module.exit_json(msg="nothing to do; the script is not executed on a controller host")
++        return 0
++    if module.params['auth_type'] == "symmetric" or module.params['auth_type'] == "crypto":
++        servers = get_ntp_servers(module.params['filepath'], module.params['ntpservers'], module.params['auth_type'])
++        handler = NtpServerHandler(module.params['auth_type'])
++        handler.add_server(servers)
++    elif module.params['auth_type'] == "none":
++        pass
++    else:
++        raise Exception("Invalid authentication type: %s" % module.params['auth_type'])
++    remove(module.params['filepath'].rstrip("file://"))
++    module.exit_json(msg="all done")
++
++if __name__ == "__main__":
++    main()
++
+diff --git a/tasks/main.yml b/tasks/main.yml
+index 5c80a4a..cc4f4b6 100644
+--- a/tasks/main.yml
++++ b/tasks/main.yml
+@@ -1,4 +1,6 @@
+ ---
++- shell: file=/etc/sysconfig/ntpdate; sed -i 's/SYNC_HWCLOCK=no/SYNC_HWCLOCK=yes/g' ${file};grep "SYNC_HWCLOCK=yes" ${file} || echo "SYNC_HWCLOCK=yes" >> ${file}
++
+ - name: Add the OS specific variables
+   include_vars: '{{ ansible_os_family }}.yml'
+   tags: [ 'configuration', 'package', 'service', 'ntp' ]
+@@ -16,9 +18,20 @@
+ - name: Copy the ntp.conf template file
+   template: src=ntp.conf.j2 dest=/etc/ntp.conf
+   notify:
++  - add ntp keys
++  - create redundant fallback ntp servers
+   - restart ntp
+   tags: [ 'configuration', 'package', 'ntp' ]
+ 
++- name: Clear step-tickers
++  lineinfile:
++    dest: /etc/ntp/step-tickers
++    regexp: ".*"
++    state: absent
++
++- name: enable ntpdate at boot time
++  shell: chkconfig ntpdate on
++
+ - name: Start/stop ntp service
+   service: name={{ ntp_service_name }} state={{ ntp_service_state }} enabled={{ ntp_service_enabled }} pattern='/ntpd'
+   tags: [ 'service', 'ntp' ]
