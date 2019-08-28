@@ -1,0 +1,53 @@
+diff -Npur ironic-10.1.3.orig/ironic/common/boot_devices.py ironic-10.1.3/ironic/common/boot_devices.py
+--- ironic-10.1.3.orig/ironic/common/boot_devices.py	2018-06-18 03:05:08.000000000 +0300
++++ ironic-10.1.3/ironic/common/boot_devices.py	2018-06-28 12:40:17.970297042 +0300
+@@ -44,5 +44,8 @@ SAFE = 'safe'
+ WANBOOT = 'wanboot'
+ "Boot from Wide Area Network"
+ 
++FLOPPY = 'floppy'
++"Boot from Floppy/primary removable media"
++
+ ISCSIBOOT = 'iscsiboot'
+ "Boot from iSCSI volume"
+diff -Npur ironic-10.1.3.orig/ironic/drivers/modules/ipmitool.py ironic-10.1.3/ironic/drivers/modules/ipmitool.py
+--- ironic-10.1.3.orig/ironic/drivers/modules/ipmitool.py	2018-06-18 03:05:16.000000000 +0300
++++ ironic-10.1.3/ironic/drivers/modules/ipmitool.py	2018-06-28 12:40:35.563255832 +0300
+@@ -137,7 +137,8 @@ BOOT_DEVICE_HEXA_MAP = {
+     boot_devices.DISK: '0x08',
+     boot_devices.CDROM: '0x14',
+     boot_devices.BIOS: '0x18',
+-    boot_devices.SAFE: '0x0c'
++    boot_devices.SAFE: '0x0c',
++    boot_devices.FLOPPY: '0x3c'
+ }
+ 
+ 
+diff -Npur ironic-10.1.3.orig/ironic/tests/unit/drivers/modules/irmc/test_management.py ironic-10.1.3/ironic/tests/unit/drivers/modules/irmc/test_management.py
+--- ironic-10.1.3.orig/ironic/tests/unit/drivers/modules/irmc/test_management.py	2018-06-18 03:05:16.000000000 +0300
++++ ironic-10.1.3/ironic/tests/unit/drivers/modules/irmc/test_management.py	2018-06-28 12:41:04.804187338 +0300
+@@ -194,8 +194,8 @@ class IRMCManagementTestCase(db_base.DbT
+     def test_management_interface_get_supported_boot_devices(self):
+         with task_manager.acquire(self.context, self.node.uuid) as task:
+             expected = [boot_devices.PXE, boot_devices.DISK,
+-                        boot_devices.CDROM, boot_devices.BIOS,
+-                        boot_devices.SAFE]
++                        boot_devices.FLOPPY, boot_devices.CDROM, 
++                        boot_devices.BIOS, boot_devices.SAFE]
+             self.assertEqual(sorted(expected), sorted(task.driver.management.
+                              get_supported_boot_devices(task)))
+ 
+diff -Npur ironic-10.1.3.orig/ironic/tests/unit/drivers/modules/test_ipmitool.py ironic-10.1.3/ironic/tests/unit/drivers/modules/test_ipmitool.py
+--- ironic-10.1.3.orig/ironic/tests/unit/drivers/modules/test_ipmitool.py	2018-06-18 03:05:16.000000000 +0300
++++ ironic-10.1.3/ironic/tests/unit/drivers/modules/test_ipmitool.py	2018-06-28 12:41:31.187125538 +0300
+@@ -2175,8 +2175,8 @@ class IPMIToolDriverTestCase(db_base.DbT
+     def test_management_interface_get_supported_boot_devices(self):
+         with task_manager.acquire(self.context, self.node.uuid) as task:
+             expected = [boot_devices.PXE, boot_devices.DISK,
+-                        boot_devices.CDROM, boot_devices.BIOS,
+-                        boot_devices.SAFE]
++                        boot_devices.FLOPPY, boot_devices.CDROM, 
++                        boot_devices.BIOS, boot_devices.SAFE]
+             self.assertEqual(sorted(expected), sorted(task.driver.management.
+                              get_supported_boot_devices(task)))
+ 
