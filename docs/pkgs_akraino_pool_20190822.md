@@ -2,9 +2,6 @@
 
 | #     |Repo name|Comments|
 |-------|---------|--------|
-|13|monitoring|python, service|
-|14|os-net-config|python|
-|15|python-ilorest-library|python|
 |16|rpmbuilder|python|
 |17|yarf|python, service|
 
