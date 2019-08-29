@@ -2,9 +2,6 @@
 
 | #     |Repo name|Comments|
 |-------|---------|--------|
-|7|image-provision|config files|
-|11|lockcli|python|
-|12|manifest|config files|
 |13|monitoring|python, service|
 |14|os-net-config|python|
 |15|python-ilorest-library|python|
