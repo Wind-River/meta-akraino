@@ -8,12 +8,11 @@ STABLE = "master"
 PROTOCOL = "https"
 BRANCH = "master"
 SRCREV = "9d7df7d094af37b01a0b756becb8521373789ad5"
-PV = "1.0+git${SRCPV}"
 S = "${WORKDIR}/git/src"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/ironic-virtmedia-driver.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH}"
 
-inherit setuptools
+inherit setuptools akraino-version
 
 RDEPENDS_${PN} += " \
         python-ironic \
