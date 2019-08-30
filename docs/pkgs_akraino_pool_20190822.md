@@ -2,8 +2,6 @@
 
 | #     |Repo name|Comments|
 |-------|---------|--------|
-|16|rpmbuilder|python|
-|17|yarf|python, service|
 
 ## ensible packages
 
@@ -47,3 +45,4 @@
 |1|build-tools|python and shell scripts, used to generate CentOS base REC image, not proper for porting|
 |2|ipa-deployer|ISO image based on CentOS-7, not proper for porting|
 |3|rec|scripts and instruction doc for REC, maybe not proper for porting|
+|4|manifest|config and record build version id, Yocto use os-release for build version id|
