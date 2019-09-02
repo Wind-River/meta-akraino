@@ -7,9 +7,6 @@
 
 | #     |Repo name|Comments|
 |-------|---------|--------|
-|6|openstack-ansible|ansible, scripts|
-|7|openstack-ansible-galera_client|ansible|
-|8|openstack-ansible-galera_server|ansible|
 |9|openstack-ansible-haproxy_server|ansible|
 |10|openstack-ansible-memcached_server|ansible|
 |11|openstack-ansible-openstack_openrc|ansible|
