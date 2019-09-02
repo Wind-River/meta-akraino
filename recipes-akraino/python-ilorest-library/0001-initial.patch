@@ -1,0 +1,82 @@
+diff --git a/.gitignore b/.gitignore
+index 1de4c0e..eb58996 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -27,7 +27,6 @@ var/
+ #  Usually these files are written by a python script from a template
+ #  before PyInstaller builds the exe, so as to inject date/other infos into it.
+ *.manifest
+-*.spec
+ 
+ # Installer logs
+ pip-log.txt
+diff --git a/requirements.txt b/requirements.txt
+index 9b9f66a..0f6adff 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -2,5 +2,4 @@ jsonpatch
+ jsonpath_rw
+ jsonpointer
+ validictory
+-urlparse2
+ six
+diff --git a/setup.cfg b/setup.cfg
+index 554736f..6ea1209 100644
+--- a/setup.cfg
++++ b/setup.cfg
+@@ -5,6 +5,5 @@ description-file = README.rst
+ requires = jsonpatch >= 1.3
+ 	jsonpath-rw >= 1.3.0
+ 	jsonpointer >= 1.1
+-	urlparse2 >= 1.1.1
+ 	validictory >= 1.0.1
+-	ilorest_chif >= 2.3
+\ No newline at end of file
++	ilorest_chif >= 2.3
+diff --git a/setup.py b/setup.py
+index 3f97911..59cc4fd 100644
+--- a/setup.py
++++ b/setup.py
+@@ -21,6 +21,5 @@ setup(name='python-ilorest-library',
+           'jsonpath_rw',
+           'jsonpointer',
+           'validictory',
+-          'urlparse2',
+           'six'
+       ])
+diff --git a/src/redfish/rest/v1.py b/src/redfish/rest/v1.py
+index e6816a9..d851425 100644
+--- a/src/redfish/rest/v1.py
++++ b/src/redfish/rest/v1.py
+@@ -535,7 +535,8 @@ class RestClientBase(object):
+         url = url if url else self.__url
+         if url.scheme.upper() == "HTTPS":
+             if sys.version_info < (2, 7, 9):
+-                self._conn = http_client.HTTPSConnection(url.netloc, timeout=30)
++                self._conn = http_client.HTTPSConnection(url.netloc, \
++                    context=ssl._create_unverified_context(), timeout=30)
+             else:
+                 self._conn = http_client.HTTPSConnection(url.netloc, \
+                     context=ssl._create_unverified_context(), timeout=30)
+diff --git a/src/redfish/ris/rmc_helper.py b/src/redfish/ris/rmc_helper.py
+index e30ad19..78c4caa 100644
+--- a/src/redfish/ris/rmc_helper.py
++++ b/src/redfish/ris/rmc_helper.py
+@@ -24,7 +24,7 @@ import json
+ import errno
+ import logging
+ import hashlib
+-import urlparse2
++import urlparse
+ import redfish.rest
+ 
+ from .ris import (RisMonolith)
+@@ -233,7 +233,7 @@ class RmcClient(object):
+ 
+     def get_cache_dirname(self):
+         """The rest client's current base URL converted to path"""
+-        parts = urlparse2.urlparse(self.get_base_url())
++        parts = urlparse.urlparse(self.get_base_url())
+         pathstr = '%s/%s' % (parts.netloc, parts.path)
+         return pathstr.replace('//', '/')
+ 
