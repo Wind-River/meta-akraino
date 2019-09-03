@@ -1,0 +1,491 @@
+diff --git a/files/galera_new_cluster b/files/galera_new_cluster
+index 1e2ea7f..7912c8c 100644
+--- a/files/galera_new_cluster
++++ b/files/galera_new_cluster
+@@ -47,16 +47,16 @@ EOF
+ trap cleanup EXIT INT TERM
+ 
+ EXIT_CODE=0
+-if ! systemctl status mysql > /dev/null; then
++if ! systemctl status mariadb > /dev/null; then
+   systemctl set-environment _WSREP_NEW_CLUSTER='--wsrep-new-cluster'
+   if grep -rniq -e suse -e opensuse /etc/os-release; then
+     bootstrap_opts
+   fi
+-  if systemctl start mysql; then
++  if systemctl start mariadb; then
+     EXIT_CODE=3
+   else
+     echo "Cluster bootstrap failed."
+-    systemctl status mysql
++    systemctl status mariadb
+     exit 99
+   fi
+ fi
+diff --git a/handlers/main.yml b/handlers/main.yml
+index 04e9430..c211589 100644
+--- a/handlers/main.yml
++++ b/handlers/main.yml
+@@ -16,7 +16,7 @@
+ - name: Reload the systemd daemon
+   systemd:
+     daemon_reload: yes
+-    name: mysql
++    name: mariadb
+     enabled: "yes"
+ 
+ - name: Check node status
+@@ -50,7 +50,7 @@
+ 
+ - name: Stop mysql
+   service:
+-    name: mysql
++    name: mariadb
+     state: stopped
+   changed_when: true
+   listen: Bootstrap cluster
+@@ -70,20 +70,21 @@
+ 
+ - name: Restart mysql (All)
+   service:
+-    name: mysql
+-    state: "{{ (not hostvars[item]['galera_cluster_ready'] | bool) | ternary('started', 'restarted') }}"
++    name: mariadb
++    state: "{{ (not galera_cluster_ready | bool) | ternary('started', 'restarted') }}"
+   environment:
+     MYSQLD_STARTUP_TIMEOUT: 180
+   register: galera_restart
+   until: galera_restart | success
+   retries: 6
+   delay: 5
+-  delegate_to: "{{ item }}"
+   when:
+-    - hostvars[item]['galera_cluster_ready'] is defined
+-    - hostvars[item]['galera_deployed'] | default(false) | bool
+-  with_items:
+-    - "{{ ansible_play_hosts }}"
++    # Donot restart mariadb in postconfig phase on installation controller.
++    # DB on installation controller will be setup during bootstrapping phase.
++    # During postconfig it will serve as primary source.
++    - installation_controller != inventory_hostname or installation_phase != 'postconfig-started'
++    - galera_cluster_ready is defined
++    - galera_deployed | default(false) | bool
+   run_once: true
+ 
+ - meta: noop
+diff --git a/tasks/galera_mysql_harden.yml b/tasks/galera_mysql_harden.yml
+new file mode 100644
+index 0000000..254d876
+--- /dev/null
++++ b/tasks/galera_mysql_harden.yml
+@@ -0,0 +1,35 @@
++---
++
++- name: Delete test database
++  mysql_db:
++    login_user: "{{ galera_root_user }}"
++    login_password: "{{ galera_root_password }}"
++    login_host: "{{ ansible_host }}"
++    name: "test"
++    state: "absent"
++
++- name: Check if daemon_memcached plugin is installed
++  shell: >
++      mysql --user="{{ galera_root_user }}" \
++            --password="{{ galera_root_password }}" \
++            --host="{{ ansible_host }}" \
++            --execute='show plugins;' | grep -i daemon_memcached
++  register: daemon_memcached_installed
++  ignore_errors: True
++
++- name: Uninstall the daemon_memcached plugin
++  command: >
++      mysql --user="{{ galera_root_user }}" \
++            --password="{{ galera_root_password }}" mysql \
++            --host="{{ ansible_host }}" \
++            --execute="UNINSTALL PLUGIN daemon_memcached;" \
++            --silent \
++            --skip-column-names
++  when:
++      - not daemon_memcached_installed.rc | bool
++
++- name: Disable MySQL command history
++  lineinfile:
++    dest: /etc/profile
++    state: present
++    line: 'export MYSQL_HISTFILE=/dev/null'
+diff --git a/tasks/galera_post_install.yml b/tasks/galera_post_install.yml
+index 5dd5f55..16166fc 100644
+--- a/tasks/galera_post_install.yml
++++ b/tasks/galera_post_install.yml
+@@ -55,6 +55,15 @@
+     - ansible_pkg_mgr != "apt"
+     - not galera_upgrade
+ 
++- name: Change line in default galera.cnf to bind only on localip port for initialization
++  ini_file:
++    path: /etc/my.cnf.d/galera.cnf
++    section: mysqld
++    option: 'bind-address'
++    value: '127.0.0.1'
++  tags:
++    - skip_ansible_lint
++
+ - name: Run galera secure
+   command: "/usr/local/bin/galera_secure_node"
+   args:
+@@ -75,9 +84,8 @@
+     mode: "{{ item.mode|default('0755') }}"
+     recurse: "{{ item.recurse|default('false') }}"
+   with_items:
+-    - { path: "/var/lib/mysql", owner: "mysql", mode: "02755" }
+-    - { path: "/var/log/mysql", owner: "mysql", mode: "02755" }
+-    - { path: "/etc/mysql/conf.d" }
++    - { path: "/var/lib/mysql", owner: "mysql", group: "mysql", mode: "02755" }
++    - { path: "/var/log/mysql", owner: "mysql", mode: "02754" }
+ 
+ - name: Behave properly if mysql_logs is a link
+   shell: |
+@@ -97,7 +105,7 @@
+     state: "directory"
+     owner: "mysql"
+     group: "adm"
+-    mode: "02755"
++    mode: "02754"
+   when:
+     - log_dir.rc == 1
+ 
+@@ -118,7 +126,7 @@
+   config_template:
+     src: "{{ item.src }}"
+     dest: "{{ item.dest }}"
+-    owner: "root"
++    owner: "mysql"
+     group: "root"
+     mode: "0644"
+     config_overrides: "{{ item.config_overrides }}"
+@@ -129,14 +137,11 @@
+       dest: "{{ galera_etc_conf_file }}"
+       config_overrides: "{{ galera_my_cnf_overrides }}"
+       config_type: "ini"
++      mode: "0640"
+     - src: cluster.cnf.j2
+-      dest: "{{ galera_etc_include_dir }}/cluster.cnf"
++      dest: "{{ galera_etc_include_dir }}/galera.cnf"
+       config_overrides: "{{ galera_cluster_cnf_overrides }}"
+       config_type: "ini"
+-    - src: debian.cnf.j2
+-      dest: /etc/mysql/debian.cnf
+-      config_overrides: "{{ galera_debian_cnf_overrides }}"
+-      config_type: "ini"
+   notify:
+     - Manage LB
+     - Restart all mysql
+diff --git a/tasks/galera_setup.yml b/tasks/galera_setup.yml
+index 9e87a9a..b772231 100644
+--- a/tasks/galera_setup.yml
++++ b/tasks/galera_setup.yml
+@@ -17,7 +17,7 @@
+   mysql_user:
+     login_user: "{{ galera_root_user }}"
+     login_password: "{{ galera_root_password }}"
+-    login_host: "127.0.0.1"
++    login_host: "{{ ansible_host }}"
+     name: "{{ item.name }}"
+     host: "{{ item.host }}"
+     password: "{{ item.password }}"
+@@ -30,7 +30,7 @@
+       priv: "*.*:ALL,GRANT"
+       state: present
+     - name: "{{ galera_root_user }}"
+-      host: "localhost"
++      host: "{{ ansible_host }}"
+       password: "{{ galera_root_password }}"
+       priv: "*.*:ALL"
+       state: absent
+@@ -40,7 +40,7 @@
+       priv: "*.*:USAGE"
+       state: present
+     - name: "{{ galera_monitoring_user }}"
+-      host: 'localhost'
++      host: "{{ ansible_host }}"
+       password: "{{ galera_monitoring_user_password }}"
+       priv: "*.*:USAGE"
+       state: present
+diff --git a/tasks/main.yml b/tasks/main.yml
+index 1bf309c..fe3c68f 100644
+--- a/tasks/main.yml
++++ b/tasks/main.yml
+@@ -56,6 +56,15 @@
+     option: initialized
+     value: true
+ 
++- name: initialize local facts deployed
++  ini_file:
++    dest: "/etc/ansible/facts.d/openstack_ansible.fact"
++    section: "galera"
++    option: deployed
++    value: true
++  when:
++    - (installation_phase == 'postconfig-started' and installation_controller != inventory_hostname) or reinitialized_nodes is defined
++
+ - name: Refresh local facts
+   setup:
+     filter: ansible_local
+@@ -109,3 +118,7 @@
+ - include_tasks: galera_setup.yml
+   tags:
+     - galera_server-config
++
++- include_tasks: galera_mysql_harden.yml
++  tags:
++    - galera_mysql_harden
+diff --git a/templates/cluster.cnf.j2 b/templates/cluster.cnf.j2
+index 2de569b..a52b903 100644
+--- a/templates/cluster.cnf.j2
++++ b/templates/cluster.cnf.j2
+@@ -1,7 +1,12 @@
+ # {{ ansible_managed }}
+ 
++[client]
++port = 3306
++socket = /var/lib/mysql/mysql.sock
++
+ [mysqld]
+ wsrep_on = ON
++socket = /var/lib/mysql/mysql.sock
+ 
+ # Path to Galera library
+ wsrep_provider = {{ galera_wsrep_provider }}
+@@ -16,6 +21,7 @@ wsrep_provider_options = "
+ # Cluster connection URL contains the IPs of node#1, node#2 and node#3
+ wsrep_cluster_address = gcomm://{{ galera_wsrep_cluster_address }}
+ 
++bind-address = {{ galera_wsrep_address }}
+ # Address for incoming client connections.
+ wsrep_node_incoming_address = {{ galera_wsrep_address }}
+ 
+diff --git a/templates/galera_secure_node.j2 b/templates/galera_secure_node.j2
+index e8786de..fd1ab72 100644
+--- a/templates/galera_secure_node.j2
++++ b/templates/galera_secure_node.j2
+@@ -17,11 +17,11 @@ set -ev
+ 
+ STOP_MYSQL=false
+ 
+-if ! systemctl status mysql; then
++if ! systemctl status mariadb; then
+   STOP_MYSQL=true
+-  systemctl start mysql
++  systemctl start mariadb
+   sleep 10
+-  systemctl status mysql
++  systemctl status mariadb
+ fi
+ 
+ if mysqladmin --no-defaults --port=3306 --socket=/var/run/mysqld/mysqld.sock --host=127.0.0.1 --user=root password "{{ galera_root_password }}"; then
+@@ -37,7 +37,7 @@ if mysqladmin --no-defaults --port=3306 --socket=/var/run/mysqld/mysqld.sock --h
+ fi
+ 
+ if [ "${STOP_MYSQL}" = true ]; then
+-  systemctl stop mysql
++  systemctl stop mariadb
+ fi
+ 
+ # Create a marker file to ensure this script is not run again
+diff --git a/templates/my.cnf.j2 b/templates/my.cnf.j2
+index c559592..4b5bc30 100644
+--- a/templates/my.cnf.j2
++++ b/templates/my.cnf.j2
+@@ -52,7 +52,7 @@ log_slave_updates = 1
+ log_bin_trust_function_creators = 1
+ 
+ # SAFETY #
+-max-allowed-packet = 16M
++max-allowed-packet = 32M
+ max-connect-errors = 1000000
+ 
+ # NOTE: If galera_max_connections is not configured by user, the number of max
+@@ -96,10 +96,17 @@ innodb-thread-concurrency = 64
+ # avoid statistics update when doing e.g show tables
+ innodb_stats_on_metadata = 0
+ 
++# Hardening #
++sql_mode = NO_ENGINE_SUBSTITUTION,STRICT_ALL_TABLES,NO_AUTO_CREATE_USER
++local_infile = OFF
++secure_file_priv = ""
++allow-suspicious-udfs = OFF
++skip_symbolic_links = ON
++
+ [mysqldump]
+ quick
+ quote-names
+-max_allowed_packet = 16M
++max_allowed_packet = 32M
+ 
+ 
+ !includedir {{ galera_etc_include_dir }}/
+diff --git a/tox.ini b/tox.ini
+deleted file mode 100644
+index a3e6053..0000000
+--- a/tox.ini
++++ /dev/null
+@@ -1,135 +0,0 @@
+-[tox]
+-minversion = 2.0
+-skipsdist = True
+-envlist = docs,linters,functional
+-
+-
+-[testenv]
+-usedevelop = True
+-install_command =
+-    pip install -c{env:UPPER_CONSTRAINTS_FILE:https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=stable/queens} {opts} {packages}
+-deps =
+-    -r{toxinidir}/test-requirements.txt
+-commands =
+-    /usr/bin/find . -type f -name "*.pyc" -delete
+-passenv =
+-    HOME
+-    http_proxy
+-    HTTP_PROXY
+-    https_proxy
+-    HTTPS_PROXY
+-    no_proxy
+-    NO_PROXY
+-whitelist_externals =
+-    bash
+-setenv =
+-    PYTHONUNBUFFERED=1
+-    ROLE_NAME=galera_server
+-    TEST_IDEMPOTENCE=false
+-    VIRTUAL_ENV={envdir}
+-    WORKING_DIR={toxinidir}
+-
+-
+-[testenv:docs]
+-commands=
+-    bash -c "rm -rf doc/build"
+-    doc8 doc
+-    python setup.py build_sphinx
+-
+-
+-[doc8]
+-# Settings for doc8:
+-extensions = .rst
+-
+-
+-[testenv:releasenotes]
+-commands =
+-    bash -c "mkdir -p releasenotes/build/{doctrees,html}"
+-    sphinx-build -a -E -W -d releasenotes/build/doctrees -b html releasenotes/source releasenotes/build/html
+-
+-
+-# environment used by the -infra templated docs job
+-[testenv:venv]
+-commands =
+-    {posargs}
+-
+-
+-[testenv:pep8]
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-pep8.sh"
+-
+-
+-[flake8]
+-# Ignores the following rules due to how ansible modules work in general
+-#     F403 'from ansible.module_utils.basic import *' used;
+-#          unable to detect undefined names
+-ignore=F403
+-
+-
+-[testenv:bashate]
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-bashate.sh"
+-
+-
+-[testenv:ansible]
+-deps =
+-    {[testenv]deps}
+-    -rhttps://git.openstack.org/cgit/openstack/openstack-ansible/plain/global-requirement-pins.txt?h=stable/queens
+-    -rhttps://git.openstack.org/cgit/openstack/openstack-ansible-tests/plain/test-ansible-deps.txt?h=stable/queens
+-
+-
+-[testenv:ansible-syntax]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-syntax.sh"
+-
+-
+-[testenv:ansible-lint]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-lint.sh"
+-
+-
+-[testenv:functional]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-functional.sh"
+-
+-[testenv:upgrade]
+-deps =
+-    {[testenv:ansible]deps}
+-setenv =
+-    {[testenv]setenv}
+-    ANSIBLE_OVERRIDES={toxinidir}/tests/galera_server-overrides.yml
+-    CLONE_UPGRADE_TESTS=yes
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/test-galera-upgrades.sh"
+-
+-[testenv:ssl]
+-deps =
+-    {[testenv:ansible]deps}
+-setenv =
+-    {[testenv]setenv}
+-    ANSIBLE_PARAMETERS=-vvv -e galera_use_ssl=True
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-functional.sh"
+-
+-[testenv:linters]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    {[testenv:pep8]commands}
+-    {[testenv:bashate]commands}
+-    {[testenv:ansible-lint]commands}
+-    {[testenv:ansible-syntax]commands}
+-    {[testenv:docs]commands}
+diff --git a/vars/redhat-7.yml b/vars/redhat-7.yml
+index 7af2425..7596cb5 100644
+--- a/vars/redhat-7.yml
++++ b/vars/redhat-7.yml
+@@ -35,8 +35,8 @@ galera_server_required_distro_packages:
+   - MariaDB-devel
+   - xinetd
+ 
+-galera_etc_conf_file: "/etc/mysql/my.cnf"
+-galera_etc_include_dir: "/etc/mysql/conf.d"
++galera_etc_conf_file: "/etc/my.cnf"
++galera_etc_include_dir: "/etc/my.cnf.d"
+ galera_var_run_socket: "/var/lib/mysql/mysql.sock"
+ 
+ _galera_mariadb_server_package: "MariaDB-server"
+@@ -80,6 +80,6 @@ galera_server_percona_distro_packages:
+   - percona-xtrabackup
+   - "{{ (galera_xtrabackup_compression | bool) | ternary('qpress', '') }}"
+ 
+-galera_wsrep_provider: "/usr/lib/galera/libgalera_smm.so"
++galera_wsrep_provider: "/usr/lib64/galera/libgalera_smm.so"
+ 
+ _use_percona_upstream: "{{ ansible_architecture == 'x86_64' }}"
