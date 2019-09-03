@@ -7,12 +7,6 @@
 
 | #     |Repo name|Comments|
 |-------|---------|--------|
-|12|openstack-ansible-os_ironic|ansible|
-|13|openstack-ansible-os_keystone|ansible|
-|14|openstack-ansible-plugins|ansible|
-|15|openstack-ansible-rabbitmq_server|ansible|
-|16|openstack-ansible-rsyslog_client|ansible|
-|17|storage|ansible|
 
 ## docker conainer packages
 
