@@ -7,9 +7,6 @@
 
 | #     |Repo name|Comments|
 |-------|---------|--------|
-|9|openstack-ansible-haproxy_server|ansible|
-|10|openstack-ansible-memcached_server|ansible|
-|11|openstack-ansible-openstack_openrc|ansible|
 |12|openstack-ansible-os_ironic|ansible|
 |13|openstack-ansible-os_keystone|ansible|
 |14|openstack-ansible-plugins|ansible|
