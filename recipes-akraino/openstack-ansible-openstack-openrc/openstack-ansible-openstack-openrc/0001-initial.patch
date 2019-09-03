@@ -1,0 +1,148 @@
+diff --git a/templates/openrc.j2 b/templates/openrc.j2
+index f0fd94e..862d101 100644
+--- a/templates/openrc.j2
++++ b/templates/openrc.j2
+@@ -1,5 +1,5 @@
+ # {{ ansible_managed }}
+-export LC_ALL=C
++export LC_ALL=en_US.UTF-8
+ 
+ # COMMON CINDER ENVS
+ export CINDER_ENDPOINT_TYPE={{ openrc_cinder_endpoint_type }}
+@@ -19,6 +19,7 @@ export OS_NO_CACHE=1
+ export OS_USER_DOMAIN_NAME={{ openrc_os_domain_name }}
+ export OS_PROJECT_DOMAIN_NAME={{ openrc_os_domain_name }}
+ export OS_REGION_NAME={{ openrc_region_name }}
++export PS1='[\u@\h \W({{ openrc_os_username }})]\$ '
+ 
+ # For openstackclient
+ {% if openrc_os_auth_url.endswith('v2.0') %}
+@@ -28,6 +29,8 @@ export OS_AUTH_VERSION=2
+ export OS_IDENTITY_API_VERSION=3
+ export OS_AUTH_VERSION=3
+ {% endif %}
++export IRONIC_API_VERSION=1.37
++export OS_BAREMETAL_API_VERSION=1.37
+ 
+ {% if openrc_insecure | bool %}
+ # Convenience Aliases for Self-Signed Certs
+diff --git a/tox.ini b/tox.ini
+deleted file mode 100644
+index e4f21b6..0000000
+--- a/tox.ini
++++ /dev/null
+@@ -1,114 +0,0 @@
+-[tox]
+-minversion = 2.0
+-skipsdist = True
+-envlist = docs,linters,functional
+-
+-
+-[testenv]
+-usedevelop = True
+-install_command =
+-    pip install -c{env:UPPER_CONSTRAINTS_FILE:https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=stable/queens} {opts} {packages}
+-deps =
+-    -r{toxinidir}/test-requirements.txt
+-commands =
+-    /usr/bin/find . -type f -name "*.pyc" -delete
+-passenv =
+-    HOME
+-    http_proxy
+-    HTTP_PROXY
+-    https_proxy
+-    HTTPS_PROXY
+-    no_proxy
+-    NO_PROXY
+-whitelist_externals =
+-    bash
+-setenv =
+-    PYTHONUNBUFFERED=1
+-    ROLE_NAME=openstack_openrc
+-    TEST_IDEMPOTENCE=true
+-    VIRTUAL_ENV={envdir}
+-    WORKING_DIR={toxinidir}
+-
+-
+-[testenv:docs]
+-commands=
+-    bash -c "rm -rf doc/build"
+-    doc8 doc
+-    python setup.py build_sphinx
+-
+-
+-[doc8]
+-# Settings for doc8:
+-extensions = .rst
+-
+-
+-[testenv:releasenotes]
+-commands =
+-    sphinx-build -a -E -W -d releasenotes/build/doctrees -b html releasenotes/source releasenotes/build/html
+-
+-
+-# environment used by the -infra templated docs job
+-[testenv:venv]
+-commands =
+-    {posargs}
+-
+-
+-[testenv:pep8]
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-pep8.sh"
+-
+-
+-[flake8]
+-# Ignores the following rules due to how ansible modules work in general
+-#     F403 'from ansible.module_utils.basic import *' used;
+-#          unable to detect undefined names
+-ignore=F403
+-
+-
+-[testenv:bashate]
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-bashate.sh"
+-
+-
+-[testenv:ansible]
+-deps =
+-    {[testenv]deps}
+-    -rhttps://git.openstack.org/cgit/openstack/openstack-ansible/plain/global-requirement-pins.txt?h=stable/queens
+-    -rhttps://git.openstack.org/cgit/openstack/openstack-ansible-tests/plain/test-ansible-deps.txt?h=stable/queens
+-
+-
+-[testenv:ansible-syntax]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-syntax.sh"
+-
+-
+-[testenv:ansible-lint]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-lint.sh"
+-
+-
+-[testenv:functional]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-functional.sh"
+-
+-
+-[testenv:linters]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    {[testenv:pep8]commands}
+-    {[testenv:bashate]commands}
+-    {[testenv:ansible-lint]commands}
+-    {[testenv:ansible-syntax]commands}
+-    {[testenv:docs]commands}
