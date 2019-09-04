@@ -12,11 +12,6 @@
 
 | #     |Repo name|Comments|
 |-------|---------|--------|
-|1|caas-cpupooler|docker container: alpine and centos|
-|2|caas-danm|docker container: alpine and centos|
-|3|caas-etcd|docker container: alpine|
-|4|caas-helm|docker container: alpine and centos|
-|5|caas-kubedns|docker container: alpine|
 |6|caas-kubernetes|docker container: centos|
 |7|caas-logging|docker container: alpine and centos|
 |8|caas-metrics|docker container: alpine|
