@@ -1,0 +1,383 @@
+diff --git a/defaults/main.yml b/defaults/main.yml
+index 353f5fd..83f5033 100644
+--- a/defaults/main.yml
++++ b/defaults/main.yml
+@@ -23,7 +23,7 @@ rabbitmq_package_state: "latest"
+ # Inventory group containing the hosts for the cluster
+ rabbitmq_host_group: "rabbitmq_all"
+ 
+-rabbitmq_primary_cluster_node: "{{ hostvars[groups[rabbitmq_host_group][0]]['ansible_hostname'] }}"
++rabbitmq_primary_cluster_node: "{{ groups['baremetal-infra_hosts'][0] }}"
+ 
+ # Upgrading the RabbitMQ package requires shutting down the cluster. This variable makes upgrading
+ #  the version an explicit action.
+@@ -131,3 +131,4 @@ rabbitmq_policies:
+   - name: "HA"
+     pattern: '^(?!amq\.).*'
+     tags: "ha-mode=all"
++    state: absent
+diff --git a/tasks/rabbitmq_install.yml b/tasks/rabbitmq_install.yml
+index 5a9a423..8948507 100644
+--- a/tasks/rabbitmq_install.yml
++++ b/tasks/rabbitmq_install.yml
+@@ -14,6 +14,8 @@
+ # limitations under the License.
+ 
+ - include: rabbitmq_upgrade_check.yml
++  tags:
++    - rabbitmq-yum-packages
+ 
+ - include: "install_{{ ansible_pkg_mgr }}.yml"
+   tags:
+diff --git a/tasks/rabbitmq_post_install.yml b/tasks/rabbitmq_post_install.yml
+index be38d68..2054d81 100644
+--- a/tasks/rabbitmq_post_install.yml
++++ b/tasks/rabbitmq_post_install.yml
+@@ -13,15 +13,22 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-- name: Configure rabbitmq plugins
+-  rabbitmq_plugin:
+-    names: "{{ item.name }}"
+-    state: "{{ item.state }}"
+-  with_items: "{{ rabbitmq_plugins }}"
+-  register: rabbitmq_plugin
++- name: Create rabbitmq config
++  register: rabbit_config_changed
++  template:
++    src: "{{ item.src }}"
++    dest: "{{ item.dest }}"
++  with_items:
++    - { src: "rabbitmq.config.j2", dest: "/etc/rabbitmq/rabbitmq.config" }
++    - { src: "rabbitmq-server.j2", dest: "/etc/default/rabbitmq-server" }
++    - { src: "rabbitmq-env.j2", dest: "/etc/rabbitmq/rabbitmq-env.conf" }
+   tags:
+     - rabbitmq-config
+ 
++- include: rabbitmq_restart.yml
++  tags:
++    - rabbitmq_server-config
++
+ - name: Apply rabbitmq policies
+   rabbitmq_policy:
+     node: "rabbit@{{ ansible_hostname }}"
+@@ -29,10 +36,10 @@
+     pattern: "{{ item.pattern }}"
+     priority: "{{ item.priority | default(0) }}"
+     tags: "{{ item.tags }}"
++    state: "{{ item.state | default('present') }}"
+   register: rabbitmq_queue_mirror
+   with_items: "{{ rabbitmq_policies }}"
+   tags:
+-    - rabbitmq-config
+     - rabbitmq-cluster
+ 
+ - name: Create rabbitmq systemd service config dir
+@@ -45,18 +52,6 @@
+   tags:
+     - rabbitmq-config
+ 
+-- name: Create rabbitmq config
+-  register: rabbit_config_changed
+-  template:
+-    src: "{{ item.src }}"
+-    dest: "{{ item.dest }}"
+-  with_items:
+-    - { src: "rabbitmq.config.j2", dest: "/etc/rabbitmq/rabbitmq.config" }
+-    - { src: "rabbitmq-server.j2", dest: "/etc/default/rabbitmq-server" }
+-    - { src: "rabbitmq-env.j2", dest: "/etc/rabbitmq/rabbitmq-env.conf" }
+-  tags:
+-    - rabbitmq-config
+-
+ - name: Apply resource limits (systemd)
+   template:
+     src: "limits.conf.j2"
+@@ -86,7 +81,7 @@
+ 
+ - include: rabbitmq_restart.yml
+   static: no
+-  when: rabbit_config_changed|changed or rabbitmq_plugin|changed or rabbitmq_queue_mirror|changed
++  when: rabbit_config_changed|changed
+ 
+ # This is being done because the rabbitctl command used by the module
+ # is not very effective at returning proper status codes for failure
+@@ -98,7 +93,7 @@
+     node: "rabbit@{{ ansible_hostname }}"
+     user: guest
+     state: absent
+-  when: inventory_hostname == groups[rabbitmq_host_group][0]
++  when: inventory_hostname == installation_controller
+   tags:
+     - rabbitmq-user
+ 
+@@ -107,6 +102,6 @@
+     node: "rabbit@{{ ansible_hostname }}"
+     user: guest
+     state: absent
+-  when: inventory_hostname != groups[rabbitmq_host_group][0]
++  when: inventory_hostname != installation_controller
+   tags:
+     - rabbitmq-user
+diff --git a/tasks/rabbitmq_pre_install.yml b/tasks/rabbitmq_pre_install.yml
+index 3531c05..636b895 100644
+--- a/tasks/rabbitmq_pre_install.yml
++++ b/tasks/rabbitmq_pre_install.yml
+@@ -29,6 +29,7 @@
+     - rabbitmq-package-deb-get
+     - rabbitmq-package-rpm
+     - rabbitmq-package-rpm-get
++    - rabbitmq-yum-packages
+ 
+ - name: Fix /etc/hosts
+   lineinfile:
+diff --git a/tasks/rabbitmq_ssl_key_distribute.yml b/tasks/rabbitmq_ssl_key_distribute.yml
+index dbc9b34..b9d8870 100644
+--- a/tasks/rabbitmq_ssl_key_distribute.yml
++++ b/tasks/rabbitmq_ssl_key_distribute.yml
+@@ -16,7 +16,7 @@
+ - name: Distribute self signed ssl key
+   copy:
+     dest: "{{ rabbitmq_ssl_key }}"
+-    content: "{{ hostvars[groups[rabbitmq_host_group][0]]['rabbitmq_ssl_key_fact'] | b64decode }}"
++    content: "{{ hostvars[installation_controller]['rabbitmq_ssl_key_fact'] | b64decode }}"
+     owner: "rabbitmq"
+     group: "rabbitmq"
+     mode: "0640"
+@@ -26,7 +26,7 @@
+ - name: Distribute self signed ssl cert
+   copy:
+     dest: "{{ rabbitmq_ssl_cert }}"
+-    content: "{{ hostvars[groups[rabbitmq_host_group][0]]['rabbitmq_ssl_cert_fact'] | b64decode }}"
++    content: "{{ hostvars[installation_controller]['rabbitmq_ssl_cert_fact'] | b64decode }}"
+     owner: "rabbitmq"
+     group: "rabbitmq"
+     mode: "0640"
+diff --git a/tasks/rabbitmq_ssl_self_signed.yml b/tasks/rabbitmq_ssl_self_signed.yml
+index 3ec8353..2f8e79d 100644
+--- a/tasks/rabbitmq_ssl_self_signed.yml
++++ b/tasks/rabbitmq_ssl_self_signed.yml
+@@ -16,10 +16,10 @@
+ # We create the self-signed SSL certificate and key only on the first
+ # RabbitMQ container.
+ - include: rabbitmq_ssl_key_create.yml
+-  when: inventory_hostname == groups[rabbitmq_host_group][0]
++  when: inventory_hostname == installation_controller
+ 
+ - include: rabbitmq_ssl_key_store.yml
+-  when: inventory_hostname == groups[rabbitmq_host_group][0]
++  when: inventory_hostname == installation_controller
+ 
+ - include: rabbitmq_ssl_key_distribute.yml
+-  when: inventory_hostname != groups[rabbitmq_host_group][0]
++  when: inventory_hostname != installation_controller
+diff --git a/tasks/rabbitmq_started.yml b/tasks/rabbitmq_started.yml
+index ac23a7e..2b887a5 100644
+--- a/tasks/rabbitmq_started.yml
++++ b/tasks/rabbitmq_started.yml
+@@ -18,6 +18,7 @@
+     name: rabbitmq-server
+     state: started
+     enabled: yes
++  failed_when: false
+   when:
+     - ansible_hostname == rabbitmq_primary_cluster_node
+   tags:
+@@ -30,6 +31,7 @@
+     name: rabbitmq-server
+     state: started
+     enabled: yes
++  failed_when: false
+   when:
+     - ansible_hostname != rabbitmq_primary_cluster_node
+   tags:
+diff --git a/templates/rabbitmq-env.j2 b/templates/rabbitmq-env.j2
+index 918ee1a..fc3bcc3 100644
+--- a/templates/rabbitmq-env.j2
++++ b/templates/rabbitmq-env.j2
+@@ -1,5 +1,6 @@
+ # {{ ansible_managed }}
+-
++NODE_IP_ADDRESS={{ ansible_host }}
++NODE_PORT=5672
+ # Set ERLANG VM parameters
+ RABBITMQ_IO_THREAD_POOL_SIZE={{ rabbitmq_async_threads }}
+ RABBITMQ_SERVER_ERL_ARGS="+P {{ rabbitmq_process_limit }}"
+diff --git a/templates/rabbitmq.config.j2 b/templates/rabbitmq.config.j2
+index 63fe73f..73e166d 100644
+--- a/templates/rabbitmq.config.j2
++++ b/templates/rabbitmq.config.j2
+@@ -1,19 +1,26 @@
++% This file managed by Puppet
++% Template Path: rabbitmq/templates/rabbitmq.config
+ [
+   {rabbit, [
+-    {loopback_users, []},
+-    {% if rabbitmq_disable_non_tls_listeners %}{tcp_listeners,[]},{% endif %}
+-    {ssl_listeners, [5671]},
+-    {collect_statistics_interval, {{ rabbitmq_collect_statistics_interval }} },
+-    {ssl_options, [{certfile,"{{ rabbitmq_ssl_cert }}"},
+-                   {keyfile,"{{ rabbitmq_ssl_key }}"},
+-                   {% if rabbitmq_user_ssl_ca_cert is defined -%}
+-                   {cacertfile,"{{ rabbitmq_ssl_ca_cert }}"},
+-                   {% endif -%}
+-                   {versions, ['tlsv1.2', 'tlsv1.1']},
+-                   {verify,verify_none},
+-                   {fail_if_no_peer_cert,false}]}
+-    {% if rabbitmq_cluster_partition_handling != 'ignore' %},{cluster_partition_handling, {{ rabbitmq_cluster_partition_handling }}}{% endif %}
+-    {% if rabbitmq_hipe_compile | bool %},{hipe_compile, true}{% endif %}
++    {tcp_listen_options,
++         [{backlog,       128},
++         {nodelay,       true},
++         {exit_on_close, false}]
++    },
++    {cluster_partition_handling, pause_minority},
++    {default_user, <<"guest">>},
++    {default_pass, <<"myFJYDHnUDtKfCtQvUTub9bEE">>}
+   ]},
+-  {rabbitmq_management, [{rates_mode, {{ rabbitmq_management_rates_mode }} }] }
++  {kernel, [
++    {inet_dist_listen_max, 25672},
++    {inet_dist_listen_min, 25672}
++  ]}
++,
++  {rabbitmq_management, [
++    {listener, [
++      {port, 15672}
++      ,{ip, "{{ ansible_host }}"}
++    ]}
++  ]}
+ ].
++% EOF
+diff --git a/tox.ini b/tox.ini
+deleted file mode 100644
+index b8545a9..0000000
+--- a/tox.ini
++++ /dev/null
+@@ -1,126 +0,0 @@
+-[tox]
+-minversion = 2.0
+-skipsdist = True
+-envlist = docs,linters,functional
+-
+-
+-[testenv]
+-usedevelop = True
+-install_command =
+-    pip install -c{env:UPPER_CONSTRAINTS_FILE:https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=stable/queens} {opts} {packages}
+-deps =
+-    -r{toxinidir}/test-requirements.txt
+-commands =
+-    /usr/bin/find . -type f -name "*.pyc" -delete
+-passenv =
+-    HOME
+-    http_proxy
+-    HTTP_PROXY
+-    https_proxy
+-    HTTPS_PROXY
+-    no_proxy
+-    NO_PROXY
+-whitelist_externals =
+-    bash
+-setenv =
+-    PYTHONUNBUFFERED=1
+-    ROLE_NAME=rabbitmq_server
+-    TEST_IDEMPOTENCE=false
+-    VIRTUAL_ENV={envdir}
+-    WORKING_DIR={toxinidir}
+-
+-
+-[testenv:docs]
+-commands=
+-    bash -c "rm -rf doc/build"
+-    doc8 doc
+-    python setup.py build_sphinx
+-
+-
+-[doc8]
+-# Settings for doc8:
+-extensions = .rst
+-
+-
+-[testenv:releasenotes]
+-commands =
+-    sphinx-build -a -E -W -d releasenotes/build/doctrees -b html releasenotes/source releasenotes/build/html
+-
+-
+-# environment used by the -infra templated docs job
+-[testenv:venv]
+-commands =
+-    {posargs}
+-
+-
+-[testenv:pep8]
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-pep8.sh"
+-
+-
+-[flake8]
+-# Ignores the following rules due to how ansible modules work in general
+-#     F403 'from ansible.module_utils.basic import *' used;
+-#          unable to detect undefined names
+-ignore=F403
+-
+-
+-[testenv:bashate]
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-bashate.sh"
+-
+-
+-[testenv:ansible]
+-deps =
+-    {[testenv]deps}
+-    -rhttps://git.openstack.org/cgit/openstack/openstack-ansible/plain/global-requirement-pins.txt?h=stable/queens
+-    -rhttps://git.openstack.org/cgit/openstack/openstack-ansible-tests/plain/test-ansible-deps.txt?h=stable/queens
+-
+-
+-[testenv:ansible-syntax]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-syntax.sh"
+-
+-
+-[testenv:ansible-lint]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-lint.sh"
+-
+-
+-[testenv:functional]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-functional.sh"
+-
+-
+-[testenv:upgrade]
+-deps =
+-    {[testenv:ansible]deps}
+-setenv =
+-    {[testenv]setenv}
+-    ANSIBLE_OVERRIDES={toxinidir}/tests/rabbitmq_server-overrides.yml
+-    CLONE_UPGRADE_TESTS=yes
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/test-rabbitmq-upgrades.sh"
+-
+-
+-[testenv:linters]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    {[testenv:pep8]commands}
+-    {[testenv:bashate]commands}
+-    {[testenv:ansible-lint]commands}
+-    {[testenv:ansible-syntax]commands}
+-    {[testenv:docs]commands}

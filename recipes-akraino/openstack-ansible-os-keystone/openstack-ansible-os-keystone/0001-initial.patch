@@ -1,0 +1,758 @@
+diff --git a/defaults/main.yml b/defaults/main.yml
+index 2d92dd4..da2c8d3 100644
+--- a/defaults/main.yml
++++ b/defaults/main.yml
+@@ -16,6 +16,9 @@
+ ## Verbosity Options
+ debug: False
+ 
++# Enable/Disable syslog
++keystone_syslog_enabled: True
++
+ # Set the package install state for distribution and pip packages
+ # Options are 'present' and 'latest'
+ keystone_package_state: "latest"
+@@ -86,7 +89,7 @@ keystone_assignment_driver: sql
+ keystone_resource_cache_time: 3600
+ keystone_resource_driver: sql
+ 
+-keystone_bind_address: 0.0.0.0
++keystone_bind_address: "{{ ansible_host }}"
+ 
+ ## Database info
+ keystone_database_connection_string: >-
+@@ -218,7 +221,7 @@ keystone_wsgi_program_names:
+ keystone_uwsgi_ports:
+   keystone-wsgi-public:
+     http: 37358
+-    socket: 35358
++    socket: 25358
+   keystone-wsgi-admin:
+     http: 37359
+     socket: 5001
+diff --git a/files/nginx.conf b/files/nginx.conf
+new file mode 100644
+index 0000000..ecdad3f
+--- /dev/null
++++ b/files/nginx.conf
+@@ -0,0 +1,47 @@
++# For more information on configuration, see:
++#   * Official English Documentation: http://nginx.org/en/docs/
++#   * Official Russian Documentation: http://nginx.org/ru/docs/
++
++user root;
++worker_processes auto;
++error_log /var/log/nginx/error.log;
++pid /run/nginx.pid;
++load_module /usr/lib64/nginx/modules/ngx_stream_module.so;
++
++events {
++    worker_connections 1024;
++}
++
++http {
++    server_tokens off;
++    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
++                      '$status $body_bytes_sent "$http_referer" '
++                      '"$http_user_agent" "$http_x_forwarded_for"';
++
++    add_header X-XSS-Protection "1; mode=block";
++    add_header X-Content-Type-Options "nosniff";
++    proxy_cookie_path / "/; HTTPOnly; Secure";
++
++    access_log  /var/log/nginx/access.log  main;
++
++    sendfile            on;
++    tcp_nopush          on;
++    tcp_nodelay         on;
++    keepalive_timeout   65;
++    types_hash_max_size 2048;
++
++    include             /etc/nginx/mime.types;
++    default_type        application/octet-stream;
++
++    # Load modular configuration files from the /etc/nginx/conf.d directory.
++    # See http://nginx.org/en/docs/ngx_core_module.html#include
++    # for more information.
++    include /etc/nginx/conf.d/*.conf;
++
++}
++stream {
++    log_format    custom   '$time_iso8601 $remote_addr $protocol $status $bytes_sent $bytes_received $session_time'
++                           '$upstream_addr "$upstream_bytes_sent" "$upstream_bytes_received" "$upstream_connect_time"';
++    access_log /var/log/nginx/stream.log custom;
++    include /etc/nginx/conf.d/stream/*.conf;
++}
+diff --git a/handlers/main.yml b/handlers/main.yml
+index 5c0e9b1..68b3ca4 100644
+--- a/handlers/main.yml
++++ b/handlers/main.yml
+@@ -27,6 +27,7 @@
+ - name: Wait for web server to complete starting
+   wait_for:
+     port: "{{ item }}"
++    host: "{{ keystone_bind_address }}"
+     timeout: 25
+     delay: 10
+   with_items:
+diff --git a/tasks/keystone_ansible_failure_recovery.sh b/tasks/keystone_ansible_failure_recovery.sh
+new file mode 100644
+index 0000000..3079e7c
+--- /dev/null
++++ b/tasks/keystone_ansible_failure_recovery.sh
+@@ -0,0 +1,8 @@
++# Run below steps if the keystone ansible run fails
++
++#1. Remove files in /etc/keystone/credential-keys/*
++rm -rf /etc/keystone/credential-keys/*
++
++#2. Run below commands to create keystone DB entries:
++su keystone -c "keystone-manage db_sync --expand"
++su keystone -c "keystone-manage db_sync --migrate"
+diff --git a/tasks/keystone_install.yml b/tasks/keystone_install.yml
+index bb6e937..a79005a 100644
+--- a/tasks/keystone_install.yml
++++ b/tasks/keystone_install.yml
+@@ -35,7 +35,7 @@
+     state: "link"
+   with_items:
+     - { src: "/etc/pki/tls/certs", dest: "/etc/ssl/certs" }
+-    - { src: "/etc/pki/tls/private", dest: "/etc/ssl/private" }
++#    - { src: "/etc/pki/tls/private", dest: "/etc/ssl/private" }
+     - { src: "/var/log/httpd", dest: "/var/log/apache2" }
+   when:
+     - ansible_pkg_mgr in ['yum', 'dnf']
+@@ -50,6 +50,8 @@
+   when:
+     - ansible_pkg_mgr in ['yum', 'dnf']
+     - keystone_sp != {}
++  tags:
++    - install-yum
+ 
+ # If the web server being removed was never installed, this task will fail when trying
+ # to stop/disable it. The task is therefore set to never fail.
+@@ -66,6 +68,8 @@
+     name: "{{ ((keystone_web_server == 'nginx') | ternary(keystone_apache_distro_packages, keystone_nginx_distro_packages)) + keystone_mod_wsgi_distro_packages }}"
+     state: absent
+     autoremove: "{{ (ansible_pkg_mgr == 'apt') | ternary('yes', omit) }}"
++  tags:
++    - install-yum
+ 
+ - name: Install distro packages
+   package:
+@@ -80,6 +84,8 @@
+   notify:
+     - Manage LB
+     - Restart web server
++  tags:
++    - install-yum
+ 
+ - name: Create developer mode constraint file
+   copy:
+@@ -102,6 +108,8 @@
+   until: install_packages|success
+   retries: 5
+   delay: 2
++  tags:
++    - pip
+ 
+ - name: Retrieve checksum for venv download
+   uri:
+@@ -109,6 +117,8 @@
+     return_content: yes
+   register: keystone_venv_checksum
+   when: keystone_venv_download | bool
++  tags:
++    - pip
+ 
+ - name: Attempt venv download
+   get_url:
+@@ -117,12 +127,16 @@
+     checksum: "sha1:{{ keystone_venv_checksum.content | trim }}"
+   register: keystone_get_venv
+   when: keystone_venv_download | bool
++  tags:
++    - pip
+ 
+ - name: Remove existing venv
+   file:
+     path: "{{ keystone_bin | dirname }}"
+     state: absent
+   when: keystone_get_venv | changed
++  tags:
++    - pip
+ 
+ - name: Create keystone venv dir
+   file:
+@@ -130,6 +144,8 @@
+     state: directory
+   register: keystone_venv_dir
+   when: keystone_get_venv | changed
++  tags:
++    - pip
+ 
+ - name: Unarchive pre-built venv
+   unarchive:
+@@ -141,6 +157,8 @@
+     - Manage LB
+     - Restart uWSGI
+     - Restart web server
++  tags:
++    - pip
+ 
+ - name: Install pip packages
+   pip:
+@@ -161,6 +179,8 @@
+     - Manage LB
+     - Restart uWSGI
+     - Restart web server
++  tags:
++    - pip
+ 
+ - name: Remove python from path first (CentOS, openSUSE)
+   file:
+@@ -169,6 +189,8 @@
+   when:
+     - ansible_pkg_mgr in ['yum', 'dnf', 'zypper']
+     - keystone_get_venv | changed
++  tags:
++    - pip
+ 
+ - name: Reset virtualenv and update its paths
+   shell: |
+@@ -178,6 +200,7 @@
+   when: keystone_get_venv | changed
+   tags:
+     - skip_ansible_lint
++    - pip
+ 
+ - name: Create WSGI symlinks
+   file:
+@@ -207,10 +230,7 @@
+       state: "True"
+     - name: "need_db_contract"
+       state: "True"
+-  when: (keystone_get_venv | changed) or
+-        (keystone_venv_dir | changed) or
+-        (install_packages | changed) or
+-        (ansible_local is not defined) or
++  when: (ansible_local is not defined) or
+         ('openstack_ansible' not in ansible_local) or
+         ('keystone' not in ansible_local['openstack_ansible']) or
+         ('need_db_expand' not in ansible_local['openstack_ansible']['keystone']) or
+diff --git a/tasks/keystone_nginx.yml b/tasks/keystone_nginx.yml
+index cb5dc63..d1e5610 100644
+--- a/tasks/keystone_nginx.yml
++++ b/tasks/keystone_nginx.yml
+@@ -27,6 +27,14 @@
+     - Manage LB
+     - Restart web server
+ 
++# This is a WA added, as the default nginx.conf runs http server on port 80
++- name: Copy in sample nginx.conf file
++  copy:
++    src: "nginx.conf"
++    dest: "/etc/nginx/"
++  notify:
++    - Restart web server
++
+ - name: Configure custom nginx log format
+   lineinfile:
+     # NOTE(hwoarang) Not every nginx.conf file is the same
+diff --git a/tasks/keystone_post_install.yml b/tasks/keystone_post_install.yml
+index cf6d355..4eb393e 100644
+--- a/tasks/keystone_post_install.yml
++++ b/tasks/keystone_post_install.yml
+@@ -29,6 +29,8 @@
+     - "{{ keystone_git_config_lookup_location }}/{{ keystone_paste_git_file_path }}"
+     - "{{ keystone_git_config_lookup_location }}/{{ keystone_sso_callback_git_file_path }}"
+   register: _git_file_fetch
++  tags:
++    - pip
+ 
+ - name: Copy keystone configuration files
+   config_template:
+@@ -45,10 +47,6 @@
+       dest: "/etc/keystone/keystone.conf"
+       config_overrides: "{{ keystone_keystone_conf_overrides }}"
+       config_type: "ini"
+-    - dest: "/etc/keystone/keystone-paste.ini"
+-      config_overrides: "{{ keystone_keystone_paste_ini_overrides }}"
+-      config_type: "ini"
+-      content: "{{ keystone_paste_user_content | default(keystone_paste_default_content, true) }}"
+     - dest: "/etc/keystone/policy.json-{{ keystone_venv_tag }}"
+       config_overrides: "{{ keystone_policy_overrides }}"
+       config_type: "json"
+@@ -60,7 +58,7 @@
+ 
+ - name: Copy Keystone Federation SP SSO callback template
+   copy:
+-    content: "{{ keystone_sso_callback_user_content | default(keystone_sso_callback_default_content, true) }}"
++    content: "{{ keystone_sso_callback_user_content }}"
+     dest: "/etc/keystone/sso_callback_template.html"
+     owner: "{{ keystone_system_user_name }}"
+     group: "{{ keystone_system_group_name }}"
+diff --git a/tasks/keystone_service_setup.yml b/tasks/keystone_service_setup.yml
+index 47af086..8559368 100644
+--- a/tasks/keystone_service_setup.yml
++++ b/tasks/keystone_service_setup.yml
+@@ -19,8 +19,8 @@
+     method: "HEAD"
+     status_code: 300
+   with_items:
+-    - "http://{{ ansible_host }}:{{ keystone_uwsgi_ports['keystone-wsgi-admin']['http'] }}"
+-    - "http://{{ ansible_host }}:{{ keystone_uwsgi_ports['keystone-wsgi-public']['http'] }}"
++    - "http://{{ ansible_host }}:{{ keystone_admin_port }}"
++    - "http://{{ ansible_host }}:{{ keystone_service_port }}"
+   register: _wait_check
+   until: _wait_check | success
+   retries: 12
+@@ -53,7 +53,7 @@
+     login_user: "{{ keystone_admin_user_name }}"
+     login_password: "{{ keystone_auth_admin_password }}"
+     login_project_name: "{{ keystone_admin_tenant_name }}"
+-    endpoint: "http://{{ ansible_host }}:{{ keystone_uwsgi_ports['keystone-wsgi-admin']['http'] }}/v3"
++    endpoint: "http://{{ ansible_host }}:{{ keystone_admin_port }}/v3"
+     ignore_catalog: True
+     tenant_name: "{{ keystone_service_tenant_name }}"
+     description: "{{ keystone_service_description }}"
+@@ -69,7 +69,7 @@
+     login_user: "{{ keystone_admin_user_name }}"
+     login_password: "{{ keystone_auth_admin_password }}"
+     login_project_name: "{{ keystone_admin_tenant_name }}"
+-    endpoint: "http://{{ ansible_host }}:{{ keystone_uwsgi_ports['keystone-wsgi-admin']['http'] }}/v3"
++    endpoint: "http://{{ ansible_host }}:{{ keystone_admin_port }}/v3"
+     ignore_catalog: True
+     role_name: "{{ keystone_default_role_name }}"
+   register: add_member_role
+@@ -85,7 +85,7 @@
+     login_user: "{{ keystone_admin_user_name }}"
+     login_password: "{{ keystone_auth_admin_password }}"
+     login_project_name: "{{ keystone_admin_tenant_name }}"
+-    endpoint: "http://{{ ansible_host }}:{{ keystone_uwsgi_ports['keystone-wsgi-admin']['http'] }}/v3"
++    endpoint: "http://{{ ansible_host }}:{{ keystone_admin_port }}/v3"
+     ignore_catalog: True
+     service_name: "{{ keystone_service_name }}"
+     service_type: "{{ keystone_service_type }}"
+@@ -102,7 +102,7 @@
+     login_user: "{{ keystone_admin_user_name }}"
+     login_password: "{{ keystone_auth_admin_password }}"
+     login_project_name: "{{ keystone_admin_tenant_name }}"
+-    endpoint: "http://{{ ansible_host }}:{{ keystone_uwsgi_ports['keystone-wsgi-admin']['http'] }}/v3"
++    endpoint: "http://{{ ansible_host }}:{{ keystone_admin_port }}/v3"
+     ignore_catalog: True
+     user_name: "{{ keystone_service_user_name }}"
+     tenant_name: "{{ keystone_service_tenant_name }}"
+@@ -119,7 +119,7 @@
+     login_user: "{{ keystone_admin_user_name }}"
+     login_password: "{{ keystone_auth_admin_password }}"
+     login_project_name: "{{ keystone_admin_tenant_name }}"
+-    endpoint: "http://{{ ansible_host }}:{{ keystone_uwsgi_ports['keystone-wsgi-admin']['http'] }}/v3"
++    endpoint: "http://{{ ansible_host }}:{{ keystone_admin_port }}/v3"
+     ignore_catalog: True
+     user_name: "{{ keystone_service_user_name }}"
+     tenant_name: "{{ keystone_service_tenant_name }}"
+@@ -136,7 +136,7 @@
+     login_user: "{{ keystone_admin_user_name }}"
+     login_password: "{{ keystone_auth_admin_password }}"
+     login_project_name: "{{ keystone_admin_tenant_name }}"
+-    endpoint: "http://{{ ansible_host }}:{{ keystone_uwsgi_ports['keystone-wsgi-admin']['http'] }}/v3"
++    endpoint: "http://{{ ansible_host }}:{{ keystone_admin_port }}/v3"
+     ignore_catalog: True
+     region_name: "{{ keystone_service_region }}"
+     service_name: "{{ keystone_service_name }}"
+diff --git a/templates/keystone-uwsgi.ini.j2 b/templates/keystone-uwsgi.ini.j2
+index bd2c61b..176c0ea 100644
+--- a/templates/keystone-uwsgi.ini.j2
++++ b/templates/keystone-uwsgi.ini.j2
+@@ -3,10 +3,11 @@
+ uid = {{ keystone_system_user_name }}
+ gid = {{ keystone_system_group_name }}
+ 
+-virtualenv = /openstack/venvs/keystone-{{ keystone_venv_tag }}
+ wsgi-file = {{ keystone_bin }}/{{ item }}
+ http = :{{ keystone_uwsgi_ports[item]['http'] }}
+ socket = 127.0.0.1:{{ keystone_uwsgi_ports[item]['socket'] }}
++plugins-dir = /usr/lib64/uwsgi/
++plugin = python_plugin.so
+ 
+ master = true
+ enable-threads = true
+diff --git a/templates/keystone-uwsgi_systemd-init.j2 b/templates/keystone-uwsgi_systemd-init.j2
+index cb021d9..1880a4e 100644
+--- a/templates/keystone-uwsgi_systemd-init.j2
++++ b/templates/keystone-uwsgi_systemd-init.j2
+@@ -13,7 +13,7 @@ Group={{ keystone_system_group_name }}
+ {% if program_override is defined %}
+ ExecStart={{ program_override }} --ini /etc/uwsgi/{{ item }}.ini --logto /var/log/keystone/{{ item }}.log {{ program_config_options|default('') }}
+ {% else %}
+-ExecStart={{ keystone_bin }}/uwsgi --ini /etc/uwsgi/{{ item }}.ini --logto /var/log/keystone/{{ item }}.log {{ program_config_options|default('') }}
++ExecStart=/usr/sbin/uwsgi --ini /etc/uwsgi/{{ item }}.ini --logto /var/log/keystone/{{ item }}.log {{ program_config_options|default('') }}
+ {% endif %}
+ 
+ # Give a reasonable amount of time for the server to start up/shut down
+diff --git a/templates/keystone.conf.j2 b/templates/keystone.conf.j2
+index 92031fe..7f223e1 100644
+--- a/templates/keystone.conf.j2
++++ b/templates/keystone.conf.j2
+@@ -15,8 +15,19 @@ member_role_name = {{ keystone_default_role_name }}
+ secure_proxy_ssl_header = {{ keystone_secure_proxy_ssl_header }}
+ {% endif %}
+ 
++# Syslog usage
++{% if keystone_syslog_enabled %}
++use_syslog = True
++syslog_log_facility = LOG_LOCAL3
++{% else %}
+ log_file = keystone.log
+ log_dir = /var/log/keystone
++{% endif %}
++
++# notifications
++notification_format = cadf
++notification_driver = messaging
++notification_driver = log
+ 
+ ## RabbitMQ RPC
+ {% if keystone_messaging_enabled | bool %}
+@@ -32,19 +43,10 @@ driver = messagingv2
+ transport_url = rabbit://{% for host in keystone_rabbitmq_telemetry_servers.split(',') %}{{ keystone_rabbitmq_telemetry_userid }}:{{ keystone_rabbitmq_telemetry_password }}@{{ host }}:{{ keystone_rabbitmq_telemetry_port }}{% if not loop.last %},{% else %}/{{ keystone_rabbitmq_telemetry_vhost }}{% endif %}{% endfor %}
+ {% endif %}
+ 
+-{% if keystone_cache_servers | length > 0 %}
+ [cache]
+-backend = dogpile.cache.memcached
+-# FIXME(lbragstad): Some strange behaviors have been reported when using
+-# multiple memcached instances with backend_argument. This has been documented
+-# in https://bugs.launchpad.net/oslo.cache/+bug/1743036
+-# For the time being, memcache_servers works with a single memcached instance
+-# and multiple instances.
+-memcache_servers = {{ keystone_cache_servers | join(',') }}
+-config_prefix = cache.keystone
+-distributed_lock = True
+ enabled = true
+-{% endif %}
++backend = oslo_cache.memcache_pool
++memcache_servers = {{ memcached_servers }}
+ 
+ 
+ [revoke]
+diff --git a/templates/keystone_nginx.conf.j2 b/templates/keystone_nginx.conf.j2
+index 736a423..e2f0076 100644
+--- a/templates/keystone_nginx.conf.j2
++++ b/templates/keystone_nginx.conf.j2
+@@ -1,7 +1,16 @@
+ # {{ ansible_managed }}
++
++# {{ item }}
++
++{% if item == "keystone-wsgi-admin" %}
++    limit_req_zone $binary_remote_addr zone=mylimit:10m rate=10r/s;
++{% else %}
++    limit_req_zone $binary_remote_addr zone=mylimit2:10m rate=10r/s;
++{% endif %}
++
+ server {
+ 
+-    listen {{ keystone_nginx_ports[item] }};
++    listen {{ ansible_host }}:{{ keystone_nginx_ports[item] }};
+ 
+     {% if keystone_ssl | bool and keystone_service_adminuri_proto == "https" %}
+     ssl                     on;
+@@ -27,7 +36,22 @@ server {
+     add_header Content-Security-Policy "default-src 'self' https: wss:;";
+     add_header X-Frame-Options {{ keystone_x_frame_options | default ('DENY') }};
+ 
++    client_body_timeout 5s;
++    client_header_timeout 5s;
++
++{% if item == "keystone-wsgi-admin" %}
++    location /login/ {
++        limit_req zone=mylimit burst=20 nodelay;
++    }
++{% else %}
++    location /login/ {
++        limit_req zone=mylimit2 burst=20 nodelay;
++    }
++{% endif %}
++
++
+     location / {
++        autoindex off;
+         try_files   $uri @yourapplication;
+     }
+ 
+diff --git a/tox.ini b/tox.ini
+index 7fc617f..f989ceb 100644
+--- a/tox.ini
++++ b/tox.ini
+@@ -4,53 +4,53 @@ skipsdist = True
+ envlist = docs,linters,functional
+ 
+ 
+-[testenv]
+-usedevelop = True
+-install_command =
+-    pip install -c{env:UPPER_CONSTRAINTS_FILE:https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=stable/queens} {opts} {packages}
+-deps =
+-    -r{toxinidir}/test-requirements.txt
+-commands =
+-    /usr/bin/find . -type f -name "*.pyc" -delete
+-passenv =
+-    HOME
+-    http_proxy
+-    HTTP_PROXY
+-    https_proxy
+-    HTTPS_PROXY
+-    no_proxy
+-    NO_PROXY
+-whitelist_externals =
+-    bash
+-setenv =
+-    PYTHONUNBUFFERED=1
+-    ROLE_NAME=os_keystone
+-    TEST_IDEMPOTENCE=false
+-    VIRTUAL_ENV={envdir}
+-    WORKING_DIR={toxinidir}
+-
+-
+-[testenv:docs]
+-commands=
+-    bash -c "rm -rf doc/build"
+-    doc8 doc
+-    python setup.py build_sphinx
+-
+-
+-[doc8]
+-# Settings for doc8:
+-extensions = .rst
+-
+-
+-[testenv:releasenotes]
+-commands =
+-    sphinx-build -a -E -W -d releasenotes/build/doctrees -b html releasenotes/source releasenotes/build/html
+-
+-
+-# environment used by the -infra templated docs job
+-[testenv:venv]
+-commands =
+-    {posargs}
++# [testenv]
++# usedevelop = True
++# install_command =
++    # pip install -c{env:UPPER_CONSTRAINTS_FILE:https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=stable/pike} {opts} {packages}
++# deps =
++    # -r{toxinidir}/test-requirements.txt
++# commands =
++    # /usr/bin/find . -type f -name "*.pyc" -delete
++# passenv =
++    # HOME
++    # http_proxy
++    # HTTP_PROXY
++    # https_proxy
++    # HTTPS_PROXY
++    # no_proxy
++    # NO_PROXY
++# whitelist_externals =
++    # bash
++# setenv =
++    # PYTHONUNBUFFERED=1
++    # ROLE_NAME=os_keystone
++    # TEST_IDEMPOTENCE=false
++    # VIRTUAL_ENV={envdir}
++    # WORKING_DIR={toxinidir}
++
++
++# [testenv:docs]
++# commands=
++    # bash -c "rm -rf doc/build"
++    # doc8 doc
++    # python setup.py build_sphinx
++
++
++# [doc8]
++# # Settings for doc8:
++# extensions = .rst
++
++
++# [testenv:releasenotes]
++# commands =
++    # sphinx-build -a -E -W -d releasenotes/build/doctrees -b html releasenotes/source releasenotes/build/html
++
++
++# # environment used by the -infra templated docs job
++# [testenv:venv]
++# commands =
++    # {posargs}
+ 
+ 
+ [testenv:pep8]
+@@ -59,90 +59,81 @@ commands =
+     bash -c "{toxinidir}/tests/common/test-pep8.sh"
+ 
+ 
+-[flake8]
+-# Ignores the following rules due to how ansible modules work in general
+-#     F403 'from ansible.module_utils.basic import *' used;
+-#          unable to detect undefined names
+-ignore=F403
+-
+-
+-[testenv:bashate]
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-bashate.sh"
+-
+-
+-[testenv:ansible]
+-deps =
+-    {[testenv]deps}
+-    -rhttps://git.openstack.org/cgit/openstack/openstack-ansible/plain/global-requirement-pins.txt?h=stable/queens
+-    -rhttps://git.openstack.org/cgit/openstack/openstack-ansible-tests/plain/test-ansible-deps.txt?h=stable/queens
+-
+-
+-[testenv:ansible-syntax]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-syntax.sh"
+-
+-
+-[testenv:ansible-lint]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-lint.sh"
+-
+-
+-[testenv:functional]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-functional.sh"
+-
+-
+-[testenv:upgrade]
+-deps =
+-    {[testenv:ansible]deps}
+-setenv =
+-    {[testenv]setenv}
+-    ANSIBLE_OVERRIDES={toxinidir}/tests/os_keystone-overrides.yml
+-    CLONE_UPGRADE_TESTS=yes
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/test-keystone-upgrades.sh"
+-
+-
+-[testenv:uw_apache]
+-deps =
+-    {[testenv:ansible]deps}
+-setenv =
+-    {[testenv]setenv}
+-    ANSIBLE_PARAMETERS=-vvv -e keystone_web_server=apache
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-functional.sh"
+-
+-
+-[testenv:ssl]
+-deps =
+-    {[testenv:ansible]deps}
+-setenv =
+-    {[testenv]setenv}
+-    ANSIBLE_PARAMETERS=-vvv -e galera_use_ssl=True
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-functional.sh"
+-
+-
+-[testenv:linters]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    {[testenv:pep8]commands}
+-    {[testenv:bashate]commands}
+-    {[testenv:ansible-lint]commands}
+-    {[testenv:ansible-syntax]commands}
+-    {[testenv:docs]commands}
++# [flake8]
++# # Ignores the following rules due to how ansible modules work in general
++# #     F403 'from ansible.module_utils.basic import *' used;
++# #          unable to detect undefined names
++# ignore=F403
++
++
++# [testenv:bashate]
++# commands =
++    # bash -c "{toxinidir}/tests/tests-repo-clone.sh"
++    # bash -c "{toxinidir}/tests/common/test-bashate.sh"
++
++
++# [testenv:ansible]
++# deps =
++    # {[testenv]deps}
++    # -rhttps://git.openstack.org/cgit/openstack/openstack-ansible/plain/global-requirement-pins.txt?h=stable/pike
++    # -rhttps://git.openstack.org/cgit/openstack/openstack-ansible-tests/plain/test-ansible-deps.txt?h=stable/pike
++
++
++# [testenv:ansible-syntax]
++# deps =
++    # {[testenv:ansible]deps}
++# commands =
++    # bash -c "{toxinidir}/tests/tests-repo-clone.sh"
++    # bash -c "{toxinidir}/tests/common/test-ansible-syntax.sh"
++
++
++# [testenv:ansible-lint]
++# deps =
++    # {[testenv:ansible]deps}
++# commands =
++    # bash -c "{toxinidir}/tests/tests-repo-clone.sh"
++    # bash -c "{toxinidir}/tests/common/test-ansible-lint.sh"
++
++
++# [testenv:upgrade]
++# deps =
++    # {[testenv:ansible]deps}
++# setenv =
++    # {[testenv]setenv}
++    # ANSIBLE_OVERRIDES={toxinidir}/tests/os_keystone-overrides.yml
++    # CLONE_UPGRADE_TESTS=yes
++# commands =
++    # bash -c "{toxinidir}/tests/tests-repo-clone.sh"
++    # bash -c "{toxinidir}/tests/test-keystone-upgrades.sh"
++
++
++# [testenv:uw_apache]
++# deps =
++    # {[testenv:ansible]deps}
++# setenv =
++    # {[testenv]setenv}
++    # ANSIBLE_PARAMETERS=-vvv -e keystone_web_server=apache
++# commands =
++    # bash -c "{toxinidir}/tests/tests-repo-clone.sh"
++    # bash -c "{toxinidir}/tests/common/test-ansible-functional.sh"
++
++
++# [testenv:uw_nginx]
++# deps =
++    # {[testenv:ansible]deps}
++# setenv =
++    # {[testenv]setenv}
++# commands =
++    # bash -c "{toxinidir}/tests/tests-repo-clone.sh"
++    # bash -c "{toxinidir}/tests/common/test-ansible-functional.sh"
++
++
++# [testenv:linters]
++# deps =
++    # {[testenv:ansible]deps}
++# commands =
++    # {[testenv:pep8]commands}
++    # {[testenv:bashate]commands}
++    # {[testenv:ansible-lint]commands}
++    # {[testenv:ansible-syntax]commands}
++    # {[testenv:docs]commands}

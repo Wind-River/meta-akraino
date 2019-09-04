@@ -1,0 +1,379 @@
+diff --git a/defaults/main.yml b/defaults/main.yml
+index a37d4e0..73e74e1 100644
+--- a/defaults/main.yml
++++ b/defaults/main.yml
+@@ -15,6 +15,9 @@
+ 
+ # Defaults file for openstack-ansible-ironic
+ 
++# Enable/Disable syslog
++ironic_syslog_enabled: True
++
+ # Verbosity Options
+ debug: False
+ 
+@@ -58,7 +61,7 @@ ironic_services:
+     wsgi_name: ironic-api-wsgi
+     uwsgi_port: "{{ ironic_service_port }}"
+     uwsgi_bind_address: "{{ ironic_uwsgi_bind_address }}"
+-    program_override: "{{ ironic_bin }}/uwsgi --ini /etc/uwsgi/ironic-api.ini"
++    program_override: "/usr/sbin/uwsgi --ini /etc/uwsgi/ironic-api.ini"
+   ironic-conductor:
+     group: ironic_conductor
+     service_name: ironic-conductor
+@@ -78,7 +81,7 @@ ironic_service_adminuri_proto: "{{ openstack_service_adminuri_proto | default(ir
+ ironic_service_internaluri_proto: "{{ openstack_service_internaluri_proto | default(ironic_service_proto) }}"
+ ironic_service_port: 6385
+ ironic_service_description: "Ironic baremetal provisioning service"
+-ironic_service_publicuri: "{{ ironic_service_publicuri_proto }}://{{ external_lb_vip_address }}:{{ ironic_service_port }}"
++ironic_service_publicuri: "{{ ironic_service_publicuri_proto }}://{{ external_lb_vip_address | ipwrap }}:{{ ironic_service_port }}"
+ ironic_service_publicurl: "{{ ironic_service_publicuri }}"
+ ironic_service_adminuri: "{{ ironic_service_adminuri_proto }}://{{ internal_lb_vip_address }}:{{ ironic_service_port }}"
+ ironic_service_adminurl: "{{ ironic_service_adminuri }}"
+@@ -189,7 +192,7 @@ ironic_standalone_driver_loaded_list: "{% for driver in ironic_standalone_driver
+ ironic_standalone_auth_strategy: noauth
+ ironic_standalone_api_url: "{{ ironic_service_internaluri }}/"
+ ironic_standalone_dhcp_provider: none
+-ironic_standalone_sync_power_state_interval: -1
++ironic_standalone_sync_power_state_interval: 60
+ ironic_standalone_db_connection_string: "{{ ironic_openstack_db_connection_string }}"
+ 
+ # Ironic db tuning
+@@ -245,7 +248,7 @@ ironic_wsgi_threads: 1
+ ironic_wsgi_processes_max: 16
+ ironic_wsgi_processes: "{{ [[ansible_processor_vcpus|default(4) // 4, 1] | max, ironic_wsgi_processes_max] | min }}"
+ ironic_wsgi_buffer_size: 65535
+-ironic_uwsgi_bind_address: 0.0.0.0
++ironic_uwsgi_bind_address: "{{ ansible_host }}"
+ 
+ ### OpenStack Services to integrate with
+ 
+diff --git a/tasks/ironic_oneview_setup.yml b/tasks/ironic_oneview_setup.yml
+index 394490a..7a6d692 100644
+--- a/tasks/ironic_oneview_setup.yml
++++ b/tasks/ironic_oneview_setup.yml
+@@ -37,6 +37,8 @@
+   until: install_packages|success
+   retries: 5
+   delay: 2
++  tags:
++    - pip
+ 
+ - name: Generate ironic-oneviewd config
+   config_template:
+diff --git a/tasks/ironic_post_install.yml b/tasks/ironic_post_install.yml
+index 0d438cd..68fd221 100644
+--- a/tasks/ironic_post_install.yml
++++ b/tasks/ironic_post_install.yml
+@@ -41,6 +41,7 @@
+   command: >
+         {{ ironic_bin }}/swift {{ keystone_service_adminuri_insecure | bool | ternary('--insecure','') }}
+         --os-username "service:{{ glance_service_user_name }}"
++        --os-project-name "service"
+         --os-password "{{ glance_service_password }}"
+         --os-auth-url {{ keystone_service_internalurl }}
+         --os-identity-api-version {{ keystone_service_internalurl.split('/v')[-1] }}
+@@ -57,6 +58,7 @@
+   shell: >
+         {{ ironic_bin }}/swift {{ keystone_service_adminuri_insecure | bool | ternary('--insecure','') }}
+         --os-username "service:{{ glance_service_user_name }}"
++        --os-project-name "service"
+         --os-password "{{ glance_service_password }}"
+         --os-auth-url {{ keystone_service_internalurl }}
+         --os-identity-api-version {{ keystone_service_internalurl.split('/v')[-1] }}
+diff --git a/tasks/main.yml b/tasks/main.yml
+index c1f9261..bb287ad 100644
+--- a/tasks/main.yml
++++ b/tasks/main.yml
+@@ -30,7 +30,7 @@
+ 
+ - include: ironic_install.yml
+   tags:
+-    - ironic-install
++    - ironic-pkg-install
+ 
+ - include: ironic_oneview_setup.yml
+   when: "'ironic-oneviewd' in (filtered_ironic_services | map(attribute='service_key') | list)"
+@@ -47,6 +47,7 @@
+   when: "ironic_services['ironic-conductor']['group'] in group_names"
+   tags:
+     - ironic-config
++    - ironic-l2
+ 
+ - include: ironic_db_setup.yml
+   when: inventory_hostname == groups['ironic_conductor'][0]
+@@ -58,6 +59,8 @@
+     - ironic-config
+ 
+ - include: ironic_service_setup.yml
+-  when: inventory_hostname == groups['ironic_api'][0]
++  when:
++    - inventory_hostname == groups['ironic_api'][0]
++    - ironic_auth_strategy == "keystone"
+   tags:
+     - ironic-config
+diff --git a/templates/ironic-uwsgi.ini.j2 b/templates/ironic-uwsgi.ini.j2
+index 252f522..6db3c5b 100644
+--- a/templates/ironic-uwsgi.ini.j2
++++ b/templates/ironic-uwsgi.ini.j2
+@@ -2,9 +2,10 @@
+ uid = {{ ironic_system_user_name }}
+ gid = {{ ironic_system_group_name }}
+ 
+-virtualenv = /openstack/venvs/ironic-{{ ironic_venv_tag }}
+ wsgi-file = {{ ironic_bin }}/{{ item.wsgi_name }}.wsgi
+ http-socket = {{ item.uwsgi_bind_address }}:{{ item.uwsgi_port }}
++plugins-dir = /usr/lib64/uwsgi/
++plugin = python_plugin.so
+ 
+ master = true
+ enable-threads = true
+@@ -17,6 +18,7 @@ add-header = Connection: close
+ buffer-size = {{ ironic_wsgi_buffer_size }}
+ thunder-lock = true
+ logfile-chmod = 644
++need-app = true
+ 
+ # Avoid filling up the logs with health check requests from haproxy.
+ route-user-agent = ^osa-haproxy-healthcheck$ donotlog:
+diff --git a/templates/ironic-wsgi.py.j2 b/templates/ironic-wsgi.py.j2
+index 08e607d..dff5d53 100644
+--- a/templates/ironic-wsgi.py.j2
++++ b/templates/ironic-wsgi.py.j2
+@@ -18,9 +18,6 @@
+ 
+ import os
+ 
+-activate_this = os.path.expanduser("{{ ironic_bin }}/activate_this.py")
+-execfile(activate_this, dict(__file__=activate_this))
+-
+ import logging
+ import sys
+ 
+diff --git a/templates/ironic.conf.j2 b/templates/ironic.conf.j2
+index a9d10da..63bee72 100644
+--- a/templates/ironic.conf.j2
++++ b/templates/ironic.conf.j2
+@@ -5,15 +5,34 @@
+ use_stderr = False
+ debug = {{ debug }}
+ 
+-auth_strategy = {{ ironic_openstack_auth_strategy }}
++enabled_hardware_types = ipmi_virtmedia, ssh_virtmedia
++enabled_console_interfaces = ipmitool-shellinabox
++enabled_management_interfaces = ipmitool
++enabled_power_interfaces = ipmitool
++enabled_boot_interfaces = virtmedia_ipmi_boot, virtmedia_ssh_boot
++enabled_raid_interfaces = agent
++enabled_deploy_interfaces = direct
++
++auth_strategy = {{ ironic_auth_strategy }}
+ enabled_drivers = {{ ironic_driver_list }}
+ host = {{ inventory_hostname }}
+ 
++remote_image_share_root = "/remote_image_share_root/"
++
++{% if (ironic_auth_strategy == "keystone") | bool %}
+ memcached_servers = {{ memcached_servers }}
++{% endif %}
+ enabled_network_interfaces = {{ ironic_enabled_network_interfaces_list }}
+ default_network_interface = {{ ironic_default_network_interface }}
+ 
++# Syslog usage
++{% if ironic_syslog_enabled %}
++use_syslog = True
++syslog_log_facility = LOG_LOCAL3
++{% endif %}
++
+ [agent]
++deploy_logs_collect = always
+ 
+ [amt]
+ 
+@@ -29,8 +48,13 @@ api_url = {{ ironic_api_url }}
+ {% endif %}
+ sync_power_state_interval = {{ ironic_sync_power_state_interval }}
+ automated_clean = {{ ironic_automated_clean }}
++deploy_callback_timeout = 0
+ 
+ [console]
++terminal=shellinaboxd
++{% if (installation_phase == "postconfig-started") | bool %}
++terminal_cert_dir=/etc/ssl/private
++{% endif %}
+ 
+ [cors]
+ 
+@@ -79,6 +103,7 @@ swift_api_version = {{ ironic_swift_api_version }}
+ 
+ [ironic_lib]
+ 
++{% if (ironic_auth_strategy == "keystone") | bool %}
+ [keystone]
+ region_name = {{ ironic_service_region }}
+ 
+@@ -101,6 +126,7 @@ token_cache_time = 300
+ # if your memcached server is shared, use these settings to avoid cache poisoning
+ memcache_security_strategy = ENCRYPT
+ memcache_secret_key = {{ memcached_encryption_key }}
++{% endif %}
+ 
+ [matchmaker_redis]
+ 
+diff --git a/tox.ini b/tox.ini
+deleted file mode 100644
+index 11a3f4a..0000000
+--- a/tox.ini
++++ /dev/null
+@@ -1,125 +0,0 @@
+-[tox]
+-minversion = 2.0
+-skipsdist = True
+-envlist = docs,linters,functional
+-
+-
+-[testenv]
+-usedevelop = True
+-install_command =
+-    pip install -c{env:UPPER_CONSTRAINTS_FILE:https://git.openstack.org/cgit/openstack/requirements/plain/upper-constraints.txt?h=stable/queens} {opts} {packages}
+-deps =
+-    -r{toxinidir}/test-requirements.txt
+-commands =
+-    /usr/bin/find . -type f -name "*.pyc" -delete
+-passenv =
+-    HOME
+-    http_proxy
+-    HTTP_PROXY
+-    https_proxy
+-    HTTPS_PROXY
+-    no_proxy
+-    NO_PROXY
+-whitelist_externals =
+-    bash
+-setenv =
+-    PYTHONUNBUFFERED=1
+-    ROLE_NAME=os_ironic
+-    TEST_IDEMPOTENCE=false
+-    VIRTUAL_ENV={envdir}
+-    WORKING_DIR={toxinidir}
+-
+-
+-[testenv:docs]
+-commands=
+-    bash -c "rm -rf doc/build"
+-    doc8 doc
+-    python setup.py build_sphinx
+-
+-
+-[doc8]
+-# Settings for doc8:
+-extensions = .rst
+-
+-
+-[testenv:releasenotes]
+-commands =
+-    sphinx-build -a -E -W -d releasenotes/build/doctrees -b html releasenotes/source releasenotes/build/html
+-
+-
+-# environment used by the -infra templated docs job
+-[testenv:venv]
+-commands =
+-    {posargs}
+-
+-
+-[testenv:pep8]
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-pep8.sh"
+-
+-
+-[flake8]
+-# Ignores the following rules due to how ansible modules work in general
+-#     F403 'from ansible.module_utils.basic import *' used;
+-#          unable to detect undefined names
+-ignore=F403
+-
+-
+-[testenv:bashate]
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-bashate.sh"
+-
+-
+-[testenv:ansible]
+-deps =
+-    {[testenv]deps}
+-    -rhttps://git.openstack.org/cgit/openstack/openstack-ansible/plain/global-requirement-pins.txt?h=stable/queens
+-    -rhttps://git.openstack.org/cgit/openstack/openstack-ansible-tests/plain/test-ansible-deps.txt?h=stable/queens
+-
+-
+-[testenv:ansible-syntax]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-syntax.sh"
+-
+-
+-[testenv:ansible-lint]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-lint.sh"
+-
+-
+-[testenv:functional]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-functional.sh"
+-
+-
+-[testenv:ssl]
+-deps =
+-    {[testenv:ansible]deps}
+-setenv =
+-    {[testenv]setenv}
+-    ANSIBLE_PARAMETERS=-vvv -e galera_use_ssl=True
+-commands =
+-    bash -c "{toxinidir}/tests/tests-repo-clone.sh"
+-    bash -c "{toxinidir}/tests/common/test-ansible-functional.sh"
+-
+-
+-[testenv:linters]
+-deps =
+-    {[testenv:ansible]deps}
+-commands =
+-    {[testenv:pep8]commands}
+-    {[testenv:bashate]commands}
+-    {[testenv:ansible-lint]commands}
+-    {[testenv:ansible-syntax]commands}
+-    {[testenv:docs]commands}
+diff --git a/vars/redhat-7.yml b/vars/redhat-7.yml
+new file mode 100644
+index 0000000..e2c10a1
+--- /dev/null
++++ b/vars/redhat-7.yml
+@@ -0,0 +1,20 @@
++---
++# Copyright 2016, Rackspace US, Inc.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++cache_timeout: 600
++
++ironic_library_modules_paths:
++  - "/usr/share/syslinux/pxelinux.0"
++  - "/usr/share/syslinux/chain.c32"
