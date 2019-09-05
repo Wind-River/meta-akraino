@@ -12,10 +12,6 @@
 
 | #     |Repo name|Comments|
 |-------|---------|--------|
-|6|caas-kubernetes|docker container: centos|
-|7|caas-logging|docker container: alpine and centos|
-|8|caas-metrics|docker container: alpine|
-|9|caas-registry|docker container: alpine and centos|
 |10|cloudtaf|docker container: fedora|
 |11|remote-installer|docker container: centos|
 |12|validation|docker container: golang, maven, tomcat, alpine, mariadb|
