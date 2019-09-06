@@ -9,6 +9,7 @@ require recipes-core/images/akraino-image-minimal.bb
 
 IMAGE_INSTALL += " \
     kernel-modules \
+    packagegroup-akraino \
     packagegroup-base-extended \
 "
 
@@ -28,7 +29,6 @@ IMAGE_INSTALL += " \
     schedtool-dl \
     socat \
     spice \
-    system-report \
     tunctl \
     udev \
     udev-extraconf \
