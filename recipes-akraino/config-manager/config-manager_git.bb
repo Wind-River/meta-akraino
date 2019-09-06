@@ -12,10 +12,10 @@ S = "${WORKDIR}/git"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/config-manager.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH}"
 
-inherit akraino-version
+inherit akraino-version distutils-base
 
-_python_site_packages_path = "/usr/lib64/python2.7/site-packages/"
 _platform_bin_path = "/usr/sbin"
+native_python_bin = "${STAGING_BINDIR_NATIVE}/${PYTHON_PN}-native/${PYTHON_PN}"
 
 do_install_append() {
     install -m 0700 -d ${D}${systemd_system_unitdir}
@@ -37,18 +37,18 @@ do_install_append() {
     install -d ${D}/etc/cmframework/masks.d
     install -D -m 0664 ${S}/cmframework/config/masks.d/default.cfg ${D}/etc/cmframework/masks.d/
 
-    mkdir -p ${D}/${_python_site_packages_path}/cmframework/
+    mkdir -p ${D}/${PYTHON_SITEPACKAGES_DIR}/cmframework/
     set -e
-    cd cmframework/src && python setup.py install --root ${D} --no-compile --install-purelib ${_python_site_packages_path} --install-scripts ${_platform_bin_path} build_scripts --executable ${bindir}/python && cd -
+    cd cmframework/src && ${native_python_bin} setup.py install --root ${D} --no-compile --install-purelib ${PYTHON_SITEPACKAGES_DIR} --install-scripts ${_platform_bin_path} build_scripts --executable ${bindir}/python && cd -
 
-    cd cmdatahandlers && python setup.py install --root ${D} --no-compile --install-purelib ${_python_site_packages_path} --install-scripts ${_platform_bin_path} build_scripts --executable ${bindir}/python && cd -
+    cd cmdatahandlers && ${native_python_bin} setup.py install --root ${D} --no-compile --install-purelib ${PYTHON_SITEPACKAGES_DIR} --install-scripts ${_platform_bin_path} build_scripts --executable ${bindir}/python && cd -
 
     mkdir -p ${D}/etc/service-profiles/
     cp serviceprofiles/profiles/*.profile ${D}/etc/service-profiles/
 
-    cd serviceprofiles/python && python setup.py install --root ${D} --no-compile --install-purelib ${_python_site_packages_path} build_scripts --executable ${bindir}/python && cd -
+    cd serviceprofiles/python && ${native_python_bin} setup.py install --root ${D} --no-compile --install-purelib ${PYTHON_SITEPACKAGES_DIR} build_scripts --executable ${bindir}/python && cd -
 
-    cd hostcli && python setup.py install --root ${D} --no-compile --install-purelib ${_python_site_packages_path} build_scripts --executable ${bindir}/python && cd -
+    cd hostcli && ${native_python_bin} setup.py install --root ${D} --no-compile --install-purelib ${PYTHON_SITEPACKAGES_DIR} build_scripts --executable ${bindir}/python && cd -
 }
 
 SYSTEMD_SERVICE_${PN} = "config-manager.service cmagent.service"
@@ -57,7 +57,7 @@ FILES_${PN} += "\
     ${systemd_system_unitdir}/config-manager.service \
     ${systemd_system_unitdir}/cmagent.service \
     /opt/cmframework \
-    ${_python_site_packages_path}\
+    ${PYTHON_SITEPACKAGES_DIR}\
 "
 
 pkg_postinst_${PN}() {
