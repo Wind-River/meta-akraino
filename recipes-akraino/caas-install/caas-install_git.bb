@@ -176,6 +176,13 @@ FILES_caas-instantiate = " \
     ${cm_config_dir} \
 "
 
+RDEPENS_${PN} = " \
+    caas-utils \
+    caas-instantiate \
+    caas-infra-charts \
+"
 RDEPENDS_caas-utils = "bash"
 RDEPENDS_caas-instantiate = "python python-ansible"
 RDEPENDS_caas-infra-charts = "python-ansible"
+
+ALLOW_EMPTY_${PN} = "1"
