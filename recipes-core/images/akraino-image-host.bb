@@ -11,6 +11,10 @@ IMAGE_INSTALL += " \
     kernel-modules \
     packagegroup-akraino \
     packagegroup-base-extended \
+    packagegroup-stak-python \
+    packagegroup-stak-base \
+    packagegroup-stak-ruby \
+    packagegroup-stak-puppet \
 "
 
 IMAGE_INSTALL += " \
