@@ -18,7 +18,7 @@ _platform_bin_path = "/usr/sbin"
 native_python_bin = "${STAGING_BINDIR_NATIVE}/${PYTHON_PN}-native/${PYTHON_PN}"
 
 do_install_append() {
-    install -m 0700 -d ${D}${systemd_system_unitdir}
+    install -d ${D}${systemd_system_unitdir}
     install -m 0644 ${S}/cmframework/systemd/config-manager.service ${D}${systemd_system_unitdir}/
     install -m 0644 ${S}/cmframework/systemd/cmagent.service ${D}${systemd_system_unitdir}/
 

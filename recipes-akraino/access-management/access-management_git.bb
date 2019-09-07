@@ -18,7 +18,7 @@ USERADD_PACKAGES = "${PN}"
 USERADD_PARAM_${PN} = "-r access-manager"
 
 do_install_append() {
-    install -m 0700 -d ${D}${systemd_system_unitdir}
+    install -d ${D}${systemd_system_unitdir}
     install -m 0644 ${WORKDIR}/git/systemd/auth-server.service ${D}${systemd_system_unitdir}/
     install -m 0700 -d ${D}/var/log/access_management
     install -D -m 755 ${WORKDIR}/git/secrets/am-secrets.yaml ${D}/${sysconfdir}/required-secrets/am-secrets.yaml
