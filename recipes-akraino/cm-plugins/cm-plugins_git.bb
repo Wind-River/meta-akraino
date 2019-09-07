@@ -36,10 +36,12 @@ do_install () {
 	:
 }
 
-pkg_postinst_ontarget_${PN} () {
-}
+RDEPENDS_${PN} = " \
+	activators \
+	inventoryhandlers \
+	recuserconfighandlers \
+	userconfighandlers \
+	validators \
+	"
 
-#FILES_${PN} = " "
-#FILES_${PN}-dev += " \
-#	var/lib/sm/watchdog/modules/libsm_watchdog_nfs.so \
-#	"
+ALLOW_EMPTY_${PN} = "1"
