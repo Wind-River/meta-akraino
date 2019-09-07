@@ -28,7 +28,7 @@ do_install_append () {
 	install -D ${S}/ansible/playbooks/etcd.yaml ${D}/${playbooks_path}/etcd.yaml
 }
 
-pkg_postinst_${PN} () {
+pkg_postinst_ontarget_${PN} () {
 	mkdir -p ${postconfig_path}
 	ln -s ${playbooks_path}/etcd.yaml ${postconfig_path}/
 }

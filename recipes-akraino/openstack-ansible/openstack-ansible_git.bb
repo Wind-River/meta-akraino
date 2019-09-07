@@ -56,7 +56,7 @@ do_install_append() {
 
 }
 
-pkg_postinst_${PN}() {
+pkg_postinst_ontarget_${PN}() {
         ln -s /opt/openstack-ansible/playbooks/galera-install.yml ${bootstrapping_path}
         ln -s /opt/openstack-ansible/playbooks/rabbitmq-install.yml ${bootstrapping_path}
         ln -s /opt/openstack-ansible/playbooks/rsyslog-install.yml ${bootstrapping_path}

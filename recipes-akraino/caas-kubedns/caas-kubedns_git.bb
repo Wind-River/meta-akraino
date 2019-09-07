@@ -31,7 +31,7 @@ do_install_append () {
 	install -D ${S}/ansible/playbooks/${COMPONENT}.yaml ${D}/${playbooks_path}/${COMPONENT}.yaml
 }
 
-pkg_postinst_${PN} () {
+pkg_postinst_ontarget_${PN} () {
 	mkdir -p ${postconfig_path}
 	ln -s ${playbooks_path}/${COMPONENT}.yaml ${postconfig_path}/
 }

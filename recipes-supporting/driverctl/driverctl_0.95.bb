@@ -59,7 +59,7 @@ RDEPENDS_${PN} += " \
         bash \
 "
 
-pkg_postinst_${PN}() {
+pkg_postinst_ontarget_${PN}() {
     udevadm control --reload-rules 
     udevadm trigger    
 }

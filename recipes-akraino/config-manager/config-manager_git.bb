@@ -60,7 +60,7 @@ FILES_${PN} += "\
     ${PYTHON_SITEPACKAGES_DIR}\
 "
 
-pkg_postinst_${PN}() {
+pkg_postinst_ontarget_${PN}() {
     ln -sf /opt/cmframework/scripts/inventory.sh /opt/openstack-ansible/inventory/
     chmod -x /usr/lib/systemd/system/config-manager.service
     chmod -x /usr/lib/systemd/system/cmagent.service
