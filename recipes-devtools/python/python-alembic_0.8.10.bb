@@ -12,5 +12,5 @@ inherit setuptools pypi
 RDEPENDS_${PN} += " \
     python-sqlalchemy \
     python-mako \
-    python-python-editor \
+    python-editor \
     "
