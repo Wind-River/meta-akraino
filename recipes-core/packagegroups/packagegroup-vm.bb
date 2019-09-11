@@ -10,6 +10,9 @@ inherit packagegroup
 
 RDEPENDS_${PN} = "\
     qemu \
+    libvirt \
+    libvirt-libvirtd \
+    libvirt-virsh \
 "
 
 RRECOMMENDS_${PN} = " \
