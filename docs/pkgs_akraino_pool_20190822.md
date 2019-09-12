@@ -12,10 +12,6 @@
 
 | #     |Repo name|Comments|
 |-------|---------|--------|
-|10|cloudtaf|docker container: fedora|
-|11|remote-installer|docker container: centos|
-|12|validation|docker container: golang, maven, tomcat, alpine, mariadb|
-|13|start-menu|scripts and service|
 
 ## not proper for porting
 
@@ -25,3 +21,5 @@
 |2|ipa-deployer|ISO image based on CentOS-7, not proper for porting|
 |3|rec|scripts and instruction doc for REC, maybe not proper for porting|
 |4|manifest|config and record build version id, Yocto use os-release for build version id|
+|5|cloudtaf|docker container: fedora|
+|6|validation|docker container: golang, maven, tomcat, alpine, mariadb|
