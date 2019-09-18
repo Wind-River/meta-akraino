@@ -44,10 +44,8 @@ KUBERNETESPAUS_EXTRA_ARG = " \
 do_compile () {
 	# Build kubernetes binaries
 	${docker_bin} build \
-		--network=host \
-		--no-cache \
-		--force-rm \
 		${DOCKER_ARG_PROXY} \
+		${DOCKER_EXTRA_ARG} \
 		${KUBERNETES_EXTRA_ARG} \
 		--tag kubernetes-builder:${IMAGE_TAG} \
 		${docker_build_dir}/kubernetes-builder
@@ -71,10 +69,8 @@ do_compile () {
 	rsync -rlpD ${binary_build_dir}/kube-scheduler ${docker_build_dir}/hyperkube/
 
 	${docker_bin} build \
-		--network=host \
-		--no-cache \
-		--force-rm \
 		${DOCKER_ARG_PROXY} \
+		${DOCKER_EXTRA_ARG} \
 		${HYPERKUBE_EXTRA_ARG} \
 		--tag hyperkube:${IMAGE_TAG} \
 		${docker_build_dir}/hyperkube
@@ -85,10 +81,8 @@ do_compile () {
 
 	# Build kubernetes pause container image
 	${docker_bin} build \
-		--network=host \
-		--no-cache \
-		--force-rm \
 		${DOCKER_ARG_PROXY} \
+		${DOCKER_EXTRA_ARG} \
 		${KUBERNETESPAUS_EXTRA_ARG} \
 		--tag kubernetespause:${IMAGE_TAG} \
 		${docker_build_dir}/kubernetespause

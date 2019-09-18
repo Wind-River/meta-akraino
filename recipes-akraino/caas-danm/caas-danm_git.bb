@@ -56,10 +56,8 @@ do_compile () {
 
 	# Build DANM binaries
 	${docker_bin} build \
-		--network=host \
-		--no-cache \
-		--force-rm \
 		${DOCKER_ARG_PROXY} \
+		${DOCKER_EXTRA_ARG} \
 		${DANM_EXTRA_ARG} \
 		--tag danm-builder:${IMAGE_TAG} \
 		${docker_build_dir}/danm-builder
@@ -74,10 +72,8 @@ do_compile () {
 
 	# Build CNI binaries
 	${docker_bin} build \
-		--network=host \
-		--no-cache \
-		--force-rm \
 		${DOCKER_ARG_PROXY} \
+		${DOCKER_EXTRA_ARG} \
 		${CNI_EXTRA_ARG} \
 		--tag cni-builder:${IMAGE_TAG} \
 		${docker_build_dir}/cni-builder

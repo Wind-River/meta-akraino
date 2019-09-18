@@ -17,17 +17,18 @@ DOCKER_ARG_PROXY = "\
     --build-arg https_proxy=${https_proxy} \
     --build-arg no_proxy=${no_proxy} \
 "
+DOCKER_EXTRA_ARG = "\
+    --network=host \
+    --no-cache \
+    --force-rm \
+"
 
-DOCKER_EXTRA_ARG ?= ""
 COMPONENT ?= "${BPN}"
 IMAGE_TAG = "${PV}"
 
 do_compile () {
 	# build the docker image
 	${docker_bin} build \
-		--network=host \
-		--no-cache \
-		--force-rm \
 		${DOCKER_ARG_PROXY} \
 		${DOCKER_EXTRA_ARG} \
 		--tag ${COMPONENT}:${IMAGE_TAG} \

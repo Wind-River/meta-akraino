@@ -40,10 +40,8 @@ DANM_EXTRA_ARG = ' \
 do_compile () {
 	# Build DANM binaries
 	${docker_bin} build \
-		--network=host \
-		--no-cache \
-		--force-rm \
 		${DOCKER_ARG_PROXY} \
+		${DOCKER_EXTRA_ARG} \
 		${DANM_EXTRA_ARG} \
 		--tag danm-builder:${IMAGE_TAG} \
 		${docker_build_dir}/danm-builder
@@ -61,10 +59,8 @@ do_compile () {
 	rsync -av ${binary_build_dir}/* ${docker_build_dir}/${COMPONENT}/danm_binaries
 
 	${docker_bin} build \
-		--network=host \
-		--no-cache \
-		--force-rm \
 		${DOCKER_ARG_PROXY} \
+		${DOCKER_EXTRA_ARG} \
 		--tag ${COMPONENT}:${IMAGE_TAG} \
 		${docker_build_dir}/${COMPONENT}
 
