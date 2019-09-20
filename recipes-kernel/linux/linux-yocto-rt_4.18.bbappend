@@ -13,8 +13,17 @@ SRC_URI_append = " \
 "
 
 KERNEL_FEATURES_append += " \
-    features/kvm/qemu-kvm-enable.scc \
-    features/netfilter/netfilter.scc \
-    features/intel-dpdk/intel-dpdk.scc \
+    cfg/rbd.scc \
+    cfg/virtio.scc \
+    features/aufs/aufs-enable.scc \
     features/cgroups/cgroups.scc \
+    features/intel-dpdk/intel-dpdk.scc \
+    features/intel-dpdk/intel-dpdk.scc \
+    features/kvm/qemu-kvm-enable.scc \
+    features/lxc/lxc-enable.scc \
+    features/netfilter/netfilter.scc \
+    features/netfilter/netfilter.scc \
+    features/nfsd/nfsd-enable.scc \
+    features/vfio/vfio.scc \
+    features/xfs/xfs.scc \
 "
