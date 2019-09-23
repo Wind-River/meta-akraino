@@ -5,41 +5,108 @@ This is an initial layer to port Akraino to Yocto linux, and it's not ready for 
 
 ## How to use
 
-> Note: It's in initial porting stage now, and based on the work in meta-starlingX, no buildable image for Akraino for now.
+> Note: It's in initial porting stage now, and based on the work in meta-starlingX and wrlinux 10.18
 
-### 1. Setup yocto build project with meta-starlingX
+* Prerequiste:
+  * Ensure docker >= 18.09.2 is installed and the docker.service is running.
+  * The docker group is created and the user for building is added into the group:
+  ```
+  $ sudo groupadd docker
+  $ sudo usermod -aG docker $USER
+  ```
 
-Refer to the steps in [meta-starlingX README](https://github.com/zbsarashki/meta-starlingX/blob/master/README) to setup a yocto build project
+### 1. Clone the source of WRLinux BASE 10.18 from github and setup
 
-### 2. Clone and add meta-akraino layer
+```shell
+# Create directories for wrlinux source and build project
+$ export SRC_WRL_DIR=/path/to/src_wrl1018
+$ export SRC_EXTRA_DIR=/path/to/src_extra_layers
+$ export PRJ_BUILD_DIR=/path/to/prj_wrl1018_akraino
+$ mkdir -p $SRC_WRL_DIR $PRJ_BUILD_DIR $SRC_EXTRA_DIR
 
-```
-# clone the akraino repo
-cd /path/to/repo_dir/layers
-git clone https://github.com/jackiehjm/meta-akraino.git
+# Clone the source
+$ cd $SRC_WRL_DIR
+$ git clone --branch WRLINUX_10_18_BASE \
+  git://github.com/WindRiver-Labs/wrlinux-x.git
 
-# add the meta-akraino layer
-cd /path/to/prj/dir
-bitbake-layers add-layer /path/to/repo_dir/layers/meta-akraino
-```
-
-### 3. Add or port Akraino specific packages and depended packages
-
-Akraino specific packages should be added in recipes-akraino directory, 
-the depended packges should be added in other recipes-XYZ according to
-the package types.
-
-### 4. Build and test
-
-* build the package only
-```
-bitbake <pkg_name>
-```
-
-* add the package in image meta-akraino/recipes-core/images/akraino-image-host.bb and build
-
-> Note: the image is not ready yet
+# Setup
+$ ./wrlinux-x/setup.sh --machines intel-x86-64 --layers meta-security \
+  meta-cloud-services meta-openstack
 
 ```
-bitbake akraino-image-host
+
+### 2. Clone meta-akraino layer and required layers
+
+```
+# clone the repos
+$ cd $SRC_EXTRA_DIR
+$ git clone https://github.com/jackiehjm/meta-akraino.git
+$ git clone https://github.com/zbsarashki/meta-starlingX.git
+$ git clone git://github.com/rauc/meta-rauc.git
+```
+
+### 3. Source the build env
+
+```shell
+$ cd $SRC_WRL_DIR
+$ . ./environment-setup-x86_64-wrlinuxsdk-linux
+$ . ./oe-init-build-env $PRJ_BUILD_DIR
+```
+
+
+### 4. Add the meta-akraino layer and required layers
+```
+$ cd $PRJ_BUILD_DIR
+$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-akraino
+$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-starlingX
+$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-rauc
+$ bitbake-layers add-layer $SRC_WRL_DIR/layers/meta-security/meta-tpm
+```
+
+### 5. Add extra configs into local.conf
+
+```
+$ cat << EOF >> conf/local.conf
+###############################
+# Config for Akraino
+###############################
+DISTRO = "akraino"
+BB_NO_NETWORK = '0'
+IMAGE_FSTYPES += "tar.bz2 live wic.vmdk wic.vdi wic.qcow2"
+docker_bin = "/usr/bin/docker"
+IMAGE_OVERHEAD_FACTOR="1.1"
+PNWHITELIST_LAYERS_remove = " \\
+    meta-akraino \\
+    starlingX-layer \\
+    dpdk \\
+    tpm-layer \\
+    cloud-services-layer \\
+    efi-secure-boot \\
+    filesystems-layer \\
+    integrity \\
+    intel \\
+    meta-python \\
+    networking-layer \\
+    openembedded-layer \\
+    openstack-layer \\
+    realtime \\
+    selinux \\
+    signing-key \\
+    tpm2 \\
+    virtualization-layer \\
+    webserver \\
+    gnome-layer \\
+    meta-initramfs \\
+    perl-layer \\
+    security \\
+    rauc \\
+    scanners-layer \\
+"
+EOF
+
+```
+
+### 6. Build the Akraino image
+```
+$ bitbake akraino-image-host
 ```
