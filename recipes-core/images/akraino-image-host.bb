@@ -12,6 +12,7 @@ IMAGE_INSTALL += " \
     packagegroup-base-extended \
     packagegroup-core-boot \
     packagegroup-core-full-cmdline \
+    packagegroup-self-hosted \
     packagegroup-stak-python \
     packagegroup-stak-base \
     packagegroup-stak-ruby \
