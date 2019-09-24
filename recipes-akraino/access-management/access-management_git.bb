@@ -12,7 +12,7 @@ S = "${WORKDIR}/git/src"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/access-management.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH}"
 
-inherit setuptools useradd akraino-version
+inherit setuptools useradd akraino-version systemd
 
 USERADD_PACKAGES = "${PN}"
 USERADD_PARAM_${PN} = "-r access-manager"
