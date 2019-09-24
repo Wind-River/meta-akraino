@@ -30,9 +30,7 @@ $ git clone --branch WRLINUX_10_18_BASE \
   git://github.com/WindRiver-Labs/wrlinux-x.git
 
 # Setup
-$ ./wrlinux-x/setup.sh --machines intel-x86-64 --layers meta-security \
-  meta-cloud-services meta-openstack
-
+$ ./wrlinux-x/setup.sh --machines intel-x86-64
 ```
 
 ### 2. Clone meta-akraino layer and required layers
@@ -41,8 +39,13 @@ $ ./wrlinux-x/setup.sh --machines intel-x86-64 --layers meta-security \
 # clone the repos
 $ cd $SRC_EXTRA_DIR
 $ git clone https://github.com/jackiehjm/meta-akraino.git
-$ git clone https://github.com/zbsarashki/meta-starlingX.git
-$ git clone git://github.com/rauc/meta-rauc.git
+$ git clone --branch thud git://github.com/rauc/meta-rauc.git
+$ git clone --branch thud git://git.yoctoproject.org/meta-security
+
+# There are some fixes and workaround in these layers, so use the
+# personal foked ones for now
+$ git clone --branch WRLINUX_10_18_BASE_akraino_190923 https://github.com/jackiehjm/meta-starlingX.git
+$ git clone --branch WRLINUX_10_18_BASE_akraino_190923 git://github.com/jackiehjm/meta-cloud-services.git
 ```
 
 ### 3. Source the build env
@@ -60,7 +63,11 @@ $ cd $PRJ_BUILD_DIR
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-akraino
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-starlingX
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-rauc
-$ bitbake-layers add-layer $SRC_WRL_DIR/layers/meta-security/meta-tpm
+$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-security
+$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-security/meta-tpm
+$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-security/meta-security-compliance
+$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-cloud-services
+$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-cloud-services/meta-openstack
 ```
 
 ### 5. Add extra configs into local.conf
