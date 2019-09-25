@@ -5,24 +5,50 @@ This is an initial layer to port Akraino to Yocto linux, and it's not ready for 
 
 ## How to use
 
-> Note: It's in initial porting stage now, and based on the work in meta-starlingX and wrlinux 10.18
+> Note: It's in initial stage now, and based on the work in meta-starlingX and wrlinux 10.18
 
 * Prerequiste:
+  * Your host need to meet the requirements for Yocto, please refer to:
+    * [Compatible Linux Distribution](https://www.yoctoproject.org/docs/2.6.3/brief-yoctoprojectqs/brief-yoctoprojectqs.html#brief-compatible-distro)
+    * [Supported Linux Distributions](https://www.yoctoproject.org/docs/2.6.3/ref-manual/ref-manual.html#detailed-supported-distros)
+    * [Required Packages for the Build Host](https://www.yoctoproject.org/docs/2.6.3/ref-manual/ref-manual.html#required-packages-for-the-build-host)
   * Ensure docker >= 18.09.2 is installed and the docker.service is running.
   * The docker group is created and the user for building is added into the group:
   ```
   $ sudo groupadd docker
   $ sudo usermod -aG docker $USER
   ```
+  * Verify that you can run docker commands without sudo:
+  ```
+  $ docker run hello-world
+  ```
 
-### 1. Clone the source of WRLinux BASE 10.18 from github and setup
+### Use wrapper script build_akraino.sh to build the image
+
+```
+$ wget http://stash.wrs.com/users/jhuang0/repos/meta-akraino/raw/scripts/build_akraino.sh
+$ chmod +x build_akraino.sh
+$ WORKSPACE=/path/to/workspace
+$ ./build_akraino.sh ${WORKSPACE}
+```
+
+If all go well, you will get the ISO image in:
+${WORKSPACE}/prj_wrl1018_akraino/tmp-glibc/deploy/images/intel-x86-64/akraino-image-rec-intel-x86-64.iso
+
+If you meet failures (it's very likely to happend since the layer is not well tested for now),
+you may need to check the following manual steps, figure out what step is failed and ru-run manually.
+
+### Manual Steps to setup build project and build the image
+
+#### 1. Clone the source of WRLinux BASE 10.18 from github and setup
 
 ```shell
 # Create directories for wrlinux source and build project
-$ export SRC_WRL_DIR=/path/to/src_wrl1018
-$ export SRC_EXTRA_DIR=/path/to/src_extra_layers
-$ export PRJ_BUILD_DIR=/path/to/prj_wrl1018_akraino
-$ mkdir -p $SRC_WRL_DIR $PRJ_BUILD_DIR $SRC_EXTRA_DIR
+$ export WORKSPACE=/path/to/workspace
+$ export SRC_WRL_DIR=${WORKSPACE}/src_wrl1018
+$ export SRC_EXTRA_DIR=${WORKSPACE}/src_extra_layers
+$ export PRJ_BUILD_DIR=${WORKSPACE}/prj_wrl1018_akraino
+$ mkdir -p ${SRC_WRL_DIR} ${PRJ_BUILD_DIR} ${SRC_EXTRA_DIR}
 
 # Clone the source
 $ cd $SRC_WRL_DIR
@@ -30,25 +56,25 @@ $ git clone --branch WRLINUX_10_18_BASE \
   git://github.com/WindRiver-Labs/wrlinux-x.git
 
 # Setup
-$ ./wrlinux-x/setup.sh --machines intel-x86-64
+$ ./wrlinux-x/build_akraino.sh --machines intel-x86-64
 ```
 
-### 2. Clone meta-akraino layer and required layers
+#### 2. Clone meta-akraino layer and required layers
 
 ```
 # clone the repos
 $ cd $SRC_EXTRA_DIR
-$ git clone https://github.com/jackiehjm/meta-akraino.git
+$ git clone http://stash.wrs.com/scm/~jhuang0/meta-akraino.git
 $ git clone --branch thud git://github.com/rauc/meta-rauc.git
 $ git clone --branch thud git://git.yoctoproject.org/meta-security
 
 # There are some fixes and workaround in these layers, so use the
 # personal foked ones for now
-$ git clone --branch WRLINUX_10_18_BASE_akraino_190923 https://github.com/jackiehjm/meta-starlingX.git
-$ git clone --branch WRLINUX_10_18_BASE_akraino_190923 git://github.com/jackiehjm/meta-cloud-services.git
+$ git clone --branch WRLINUX_10_18_BASE_akraino http://stash.wrs.com/scm/~jhuang0/meta-starlingx.git 
+$ git clone --branch WRLINUX_10_18_BASE_akraino git://github.com/jackiehjm/meta-cloud-services.git
 ```
 
-### 3. Source the build env
+#### 3. Source the build env
 
 ```shell
 $ cd $SRC_WRL_DIR
@@ -57,11 +83,11 @@ $ . ./oe-init-build-env $PRJ_BUILD_DIR
 ```
 
 
-### 4. Add the meta-akraino layer and required layers
+#### 4. Add the meta-akraino layer and required layers
 ```
 $ cd $PRJ_BUILD_DIR
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-akraino
-$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-starlingX
+$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-starlingx
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-rauc
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-security
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-security/meta-tpm
@@ -70,50 +96,21 @@ $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-cloud-services
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-cloud-services/meta-openstack
 ```
 
-### 5. Add extra configs into local.conf
+#### 5. Add extra configs into local.conf
 
 ```
+$ docker_bin=`which docker`
 $ cat << EOF >> conf/local.conf
-###############################
-# Config for Akraino
-###############################
+#######################
+# Configs for Akraino #
+#######################
 DISTRO = "akraino"
 BB_NO_NETWORK = '0'
-IMAGE_FSTYPES += "tar.bz2 live wic.vmdk wic.vdi wic.qcow2"
-docker_bin = "/usr/bin/docker"
-IMAGE_OVERHEAD_FACTOR="1.1"
-PNWHITELIST_LAYERS_remove = " \\
-    meta-akraino \\
-    starlingX-layer \\
-    dpdk \\
-    tpm-layer \\
-    cloud-services-layer \\
-    efi-secure-boot \\
-    filesystems-layer \\
-    integrity \\
-    intel \\
-    meta-python \\
-    networking-layer \\
-    openembedded-layer \\
-    openstack-layer \\
-    realtime \\
-    selinux \\
-    signing-key \\
-    tpm2 \\
-    virtualization-layer \\
-    webserver \\
-    gnome-layer \\
-    meta-initramfs \\
-    perl-layer \\
-    security \\
-    rauc \\
-    scanners-layer \\
-"
+docker_bin = "${docker_bin}"
 EOF
-
 ```
 
-### 6. Build the Akraino image
+#### 6. Build the Akraino image
 ```
-$ bitbake akraino-image-host
+$ bitbake akraino-image-rec
 ```
