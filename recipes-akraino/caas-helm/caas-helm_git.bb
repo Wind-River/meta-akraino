@@ -54,16 +54,19 @@ do_compile () {
 		${docker_build_dir}/tiller
 
 	mkdir -p ${docker_save_dir}
-	$docker_bin} save tiller:${IMAGE_TAG} | xz -z -T2 > "${docker_save_dir}/tiller:${IMAGE_TAG}.tar"
+	${docker_bin} save tiller:${IMAGE_TAG} | xz -z -T2 > "${docker_save_dir}/tiller:${IMAGE_TAG}.tar"
 	${docker_bin} rmi tiller:${IMAGE_TAG}
 }
 
-do_install_append () {
+do_install () {
+	install -d ${D}${caas_container_tar_path}
+	rsync -rlpD ${docker_save_dir}/* ${D}${caas_container_tar_path}
+
 	install -d ${D}${roles_path}
 	rsync -rlpD ${S}/ansible/roles/${COMPONENT} ${D}${roles_path}
 
 	install -D ${S}/ansible/playbooks/${COMPONENT}.yaml ${D}/${playbooks_path}/${COMPONENT}.yaml
-	install -D -m 0755 ${binary_build_dir}/${COMPONENT} ${S}/${bindir}/${COMPOENT}
+	install -D -m 0755 ${binary_build_dir}/${COMPONENT} ${S}/${bindir}/${COMPONENT}
 }
 
 pkg_postinst_ontarget_${PN} () {
