@@ -76,4 +76,4 @@ cat ${SCRIPTS_DIR}/extra_local.conf >> conf/local.conf
 # Build the Akraino image
 mkdir -p logs
 TIMESTAMP=`date +"%Y%m%d_%H%M%S"`
-bitbake akraino-image-host 2>&1|tee logs/bitbake_akraino-image-host_${TIMESTAMP}.log
+bitbake akraino-image-rec 2>&1|tee logs/bitbake_akraino-image-rec_${TIMESTAMP}.log
