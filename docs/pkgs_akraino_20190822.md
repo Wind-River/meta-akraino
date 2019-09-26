@@ -13,13 +13,13 @@
 |9|ironicclient|python|
 |10|ironic-virtmedia-driver|python|
 |11|lockcli|python|
-|12|manifest|config files|
-|13|monitoring|python, service|
-|14|os-net-config|python|
-|15|python-ilorest-library|python|
-|16|rpmbuilder|python|
-|17|yarf|python, service|
-|18|python-peewee|python|
+|12|monitoring|python, service|
+|13|os-net-config|python|
+|14|python-ilorest-library|python|
+|15|rpmbuilder|python|
+|16|yarf|python, service|
+|17|python-peewee|python|
+|18|start-menu|scripts and service|
 
 ## ensible packages
 
@@ -56,10 +56,6 @@
 |7|caas-logging|docker container: alpine and centos|
 |8|caas-metrics|docker container: alpine|
 |9|caas-registry|docker container: alpine and centos|
-|10|cloudtaf|docker container: fedora|
-|11|remote-installer|docker container: centos|
-|12|validation|docker container: golang, maven, tomcat, alpine, mariadb|
-|13|start-menu|scripts and service|
 
 ## not proper for porting
 
@@ -68,3 +64,7 @@
 |1|build-tools|python and shell scripts, used to generate CentOS base REC image, not proper for porting|
 |2|ipa-deployer|ISO image based on CentOS-7, not proper for porting|
 |3|rec|scripts and instruction doc for REC, maybe not proper for porting|
+|4|manifest|config and record build version id, Yocto use os-release for build version id|
+|5|cloudtaf|docker container: fedora|
+|6|validation|docker container: golang, maven, tomcat, alpine, mariadb|
+|7|remote-installer|docker container: centos|

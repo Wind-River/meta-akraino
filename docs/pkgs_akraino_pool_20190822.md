@@ -23,3 +23,4 @@
 |4|manifest|config and record build version id, Yocto use os-release for build version id|
 |5|cloudtaf|docker container: fedora|
 |6|validation|docker container: golang, maven, tomcat, alpine, mariadb|
+|7|remote-installer|docker container: centos|

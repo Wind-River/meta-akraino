@@ -8,16 +8,24 @@ PACKAGE_ARCH = "${MACHINE_ARCH}"
 
 inherit packagegroup
 
+PROVIDES = "${PACKAGES}"
+PACKAGES = " \
+    ${PN}-base \
+    ${PN}-docker \
+"
+
 RDEPENDS_${PN} = "\
+    ${PN}-base \
+    ${PN}-docker \
+"
+
+RDEPENDS_${PN}-base = "\
     access-management \
     ansible-role-ntp \
-    caas-elasticsearch \
-    caas-etcd \
-    caas-fluentd \
+    caas-security \
     caas-install \
-    caas-kubedns \
-    caas-metrics-server \
-    caas-prometheus \
+    caas-lcm \
+    infra-ansible \
     cm-plugins \
     config-encoder-macros \
     config-manager \
@@ -27,9 +35,9 @@ RDEPENDS_${PN} = "\
     image-provision \
     lockcli \
     monitoring \
+    openstack-ansible \
     openstack-ansible-galera-client \
     openstack-ansible-galera-server \
-    openstack-ansible \
     openstack-ansible-haproxy-server \
     openstack-ansible-memcached-server \
     openstack-ansible-openstack-openrc \
@@ -40,10 +48,33 @@ RDEPENDS_${PN} = "\
     openstack-ansible-rsyslog-client \
     os-net-config \
     python-ilorest-library \
-    python-ironicclient \
     python-ironic \
     python-ironic-virtmedia-driver \
+    python-ironicclient \
     python-peewee \
     python-yarf \
     storage \
+    start-menu \
 "
+
+RDEPENDS_${PN}-docker = "\
+    caas-chartrepo \
+    caas-custom-metrics \
+    caas-danm \
+    caas-elasticsearch \
+    caas-etcd \
+    caas-fluentd \
+    caas-hyperdanm \
+    caas-metrics-server \
+    caas-prometheus \
+    caas-registry \
+    caas-sriovdp \
+    caas-swift \
+"
+
+# Not added for now:
+#    caas-cpupooler
+#    caas-kubernetes
+#    caas-flannel
+#    caas-kubedns
+#    caas-helm

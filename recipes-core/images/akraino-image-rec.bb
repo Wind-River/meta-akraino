@@ -8,7 +8,8 @@ inherit akraino-image
 
 IMAGE_INSTALL += " \
     kernel-modules \
-    packagegroup-akraino \
+    packagegroup-akraino-base \
+    packagegroup-akraino-docker \
     packagegroup-base-extended \
     packagegroup-core-boot \
     packagegroup-core-full-cmdline \
