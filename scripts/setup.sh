@@ -43,8 +43,8 @@ cd ${SRC_EXTRA_DIR}
 for i in "git clone https://github.com/jackiehjm/meta-akraino.git" \
          "git clone --branch thud git://github.com/rauc/meta-rauc.git" \
          "git clone --branch thud git://git.yoctoproject.org/meta-security" \
-         "git clone --branch WRLINUX_10_18_BASE_akraino_190923 https://github.com/jackiehjm/meta-starlingX.git" \
-         "git clone --branch WRLINUX_10_18_BASE_akraino_190923 git://github.com/jackiehjm/meta-cloud-services.git"; do
+         "git clone --branch WRLINUX_10_18_BASE_akraino https://github.com/jackiehjm/meta-starlingX.git" \
+         "git clone --branch WRLINUX_10_18_BASE_akraino git://github.com/jackiehjm/meta-cloud-services.git"; do
     RUN_CMD="${i}"
     echo_cmd "Cloing with:"
     ${RUN_CMD}
@@ -53,10 +53,8 @@ done
 # Source the build env
 cd ${SRC_WRL_DIR}
 . ./environment-setup-x86_64-wrlinuxsdk-linux
-set -x
 set ${PRJ_BUILD_DIR}
 . ./oe-init-build-env ${PRJ_BUILD_DIR}
-
 
 # Add the meta-akraino layer and required layers
 cd ${PRJ_BUILD_DIR}
