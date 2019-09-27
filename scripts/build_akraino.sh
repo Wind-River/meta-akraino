@@ -1,5 +1,42 @@
 #!/bin/sh
 
+help_info () {
+cat << ENDHELP
+Usage:
+$(basename $0) WORKSPACE_DIR
+where:
+    WORKSPACE_DIR is the path for the project
+ENDHELP
+}
+
+echo_info () {
+    echo "INFO: $1"
+}
+
+echo_error () {
+    echo "ERROR: $1"
+}
+
+echo_cmd () {
+    echo
+    echo "$1"
+    echo "CMD: ${RUN_CMD}"
+}
+
+check_docker () {
+    echo_info "Verify if you can run docker commands without sudo."
+    docker run hello-world
+    if [ $? -ne 0 ]; then
+        echo_error "You can't run docker commands without sudo!"
+        exit 1
+    fi
+}
+
+if [ $# -eq 0 ]; then
+    help_info
+    exit
+fi
+
 SCRIPTS_DIR=`dirname $0`
 SCRIPTS_DIR=`readlink -f $SCRIPTS_DIR`
 
@@ -9,19 +46,9 @@ SRC_WRL_DIR=${WORKSPACE}/src_wrl1018
 SRC_EXTRA_DIR=${WORKSPACE}/src_extra_layers
 PRJ_BUILD_DIR=${WORKSPACE}/prj_wrl1018_akraino
 
-echo_info () {
-    echo "INFO: $1"
-}
-
-echo_cmd () {
-    echo
-    echo "$1"
-    echo "CMD: ${RUN_CMD}"
-}
-
 mkdir -p ${SRC_WRL_DIR} ${PRJ_BUILD_DIR} ${SRC_EXTRA_DIR}
 
-echo_info "The following directories are created in your workspace: ${WORKSPACE}"
+echo_info "The following directories are created in your workspace(${WORKSPACE}):"
 echo_info "For wrlinux1018 source: ${SRC_WRL_DIR}"
 echo_info "For extra layers source: ${SRC_EXTRA_DIR}"
 echo_info "For build project: ${PRJ_BUILD_DIR}"
@@ -40,10 +67,10 @@ ${RUN_CMD}
 echo_info "Cloning extra layers:"
 
 cd ${SRC_EXTRA_DIR}
-for i in "git clone https://github.com/jackiehjm/meta-akraino.git" \
+for i in "git clone http://stash.wrs.com/scm/~jhuang0/meta-akraino.git" \
          "git clone --branch thud git://github.com/rauc/meta-rauc.git" \
          "git clone --branch thud git://git.yoctoproject.org/meta-security" \
-         "git clone --branch WRLINUX_10_18_BASE_akraino https://github.com/jackiehjm/meta-starlingX.git" \
+         "git clone --branch WRLINUX_10_18_BASE_akraino http://stash.wrs.com/scm/~jhuang0/meta-starlingx.git" \
          "git clone --branch WRLINUX_10_18_BASE_akraino git://github.com/jackiehjm/meta-cloud-services.git"; do
     RUN_CMD="${i}"
     echo_cmd "Cloing with:"
@@ -59,7 +86,7 @@ set ${PRJ_BUILD_DIR}
 # Add the meta-akraino layer and required layers
 cd ${PRJ_BUILD_DIR}
 bitbake-layers add-layer ${SRC_EXTRA_DIR}/meta-akraino
-bitbake-layers add-layer ${SRC_EXTRA_DIR}/meta-starlingX
+bitbake-layers add-layer ${SRC_EXTRA_DIR}/meta-starlingx
 bitbake-layers add-layer ${SRC_EXTRA_DIR}/meta-rauc
 bitbake-layers add-layer ${SRC_EXTRA_DIR}/meta-security
 bitbake-layers add-layer ${SRC_EXTRA_DIR}/meta-security/meta-tpm
@@ -69,7 +96,15 @@ bitbake-layers add-layer ${SRC_EXTRA_DIR}/meta-cloud-services/meta-openstack
 
 
 # Add extra configs into local.conf
-cat ${SCRIPTS_DIR}/extra_local.conf >> conf/local.conf
+docker_bin=`which docker`
+cat << EOF >> conf/local.conf
+#######################
+# Configs for Akraino #
+#######################
+DISTRO = "akraino"
+BB_NO_NETWORK = '0'
+docker_bin = "${docker_bin}"
+EOF
 
 # Build the Akraino image
 mkdir -p logs
