@@ -60,21 +60,21 @@ RDEPENDS_${PN}-base = "\
 RDEPENDS_${PN}-docker = "\
     caas-chartrepo \
     caas-custom-metrics \
-    caas-danm \
     caas-elasticsearch \
     caas-etcd \
     caas-fluentd \
-    caas-hyperdanm \
     caas-metrics-server \
     caas-prometheus \
     caas-registry \
     caas-sriovdp \
-    caas-swift \
 "
 
 # Not added for now:
 #    caas-cpupooler
+#    caas-danm
+#    caas-hyperdanm
 #    caas-kubernetes
 #    caas-flannel
 #    caas-kubedns
 #    caas-helm
+#    caas-swift
