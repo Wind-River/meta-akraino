@@ -7,7 +7,7 @@ This is an initial layer to port Akraino to Yocto linux, and it's not ready for 
 
 > Note: It's in initial stage now, and based on the work in meta-starlingX and wrlinux 10.18
 
-* Prerequiste:
+* Prerequisite:
   * Your host need to meet the requirements for Yocto, please refer to:
     * [Compatible Linux Distribution](https://www.yoctoproject.org/docs/2.6.3/brief-yoctoprojectqs/brief-yoctoprojectqs.html#brief-compatible-distro)
     * [Supported Linux Distributions](https://www.yoctoproject.org/docs/2.6.3/ref-manual/ref-manual.html#detailed-supported-distros)
@@ -35,8 +35,8 @@ $ ./build_akraino.sh ${WORKSPACE}
 If all go well, you will get the ISO image in:
 ${WORKSPACE}/prj_wrl1018_akraino/tmp-glibc/deploy/images/intel-x86-64/akraino-image-rec-intel-x86-64.iso
 
-If you meet failures (it's very likely to happend since the layer is not well tested for now),
-you may need to check the following manual steps, figure out what step is failed and ru-run manually.
+If you meet failures (it's very likely to happen since the layer is not well tested for now),
+you may need to check the following manual steps, figure out what step is failed and re-run manually.
 
 ### Manual Steps to setup build project and build the image
 
