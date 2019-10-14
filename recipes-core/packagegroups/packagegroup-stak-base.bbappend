@@ -83,4 +83,5 @@ RDEPENDS_packagegroup-stak-python += " \
     python \
     python-misc \
     python-modules \
+    python-ansible \
 "
