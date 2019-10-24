@@ -67,14 +67,14 @@ RDEPENDS_${PN}-docker = "\
     caas-prometheus \
     caas-registry \
     caas-sriovdp \
+    caas-cpupooler \
+    caas-flannel \
+    caas-kubedns \
+    caas-helm \
+    caas-swift \
 "
 
 # Not added for now:
-#    caas-cpupooler
 #    caas-danm
 #    caas-hyperdanm
 #    caas-kubernetes
-#    caas-flannel
-#    caas-kubedns
-#    caas-helm
-#    caas-swift
