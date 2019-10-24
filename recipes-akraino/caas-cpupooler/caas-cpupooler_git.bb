@@ -98,7 +98,7 @@ do_install_append () {
 	rsync -rlpD ${S}/ansible/roles/${COMPONENT} ${D}${roles_path}
 }
 
-pkg_postinst_${PN} () {
+pkg_postinst_ontarget_${PN} () {
 	mkdir -p ${postconfig_path}
 	ln -s ${playbooks_path}/${COMPONENT}.yaml ${postconfig_path}/
 }
