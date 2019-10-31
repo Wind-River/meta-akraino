@@ -12,7 +12,8 @@ SRC_URI = "git://github.com/openstack/${SRCNAME}.git;branch=stable/queens \
     file://0001-floppy-support.patch \
     "
 
-SRC_URI[sha256sum] = "c0bd46b327a9b64dd3282f0eb82661a99c13da615b21fe981e65ac00098db385"
+SRC_URI[md5sum] = "41cc9e2cfabfa96d845a1b705bbf0fce"
+SRC_URI[sha256sum] = "f5277017b06cf1031be7fe7826c3ef5c962b8747ba9c0e36699b19444a579f43"
 
 SRCREV = "21b199b586959cdedd92543a3d1bf2252907f67c"
 PV = "10.1.4+git${SRCPV}"
