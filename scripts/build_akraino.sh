@@ -119,9 +119,16 @@ cat << EOF >> conf/local.conf
 DISTRO = "akraino"
 BB_NO_NETWORK = '0'
 docker_bin = "${docker_bin}"
+
+# For container image
+WR_APP_CONTAINER_APP = "rt-tests"
 EOF
 
-# Build the Akraino image
 mkdir -p logs
 TIMESTAMP=`date +"%Y%m%d_%H%M%S"`
+
+# Build the Akraino host image
 bitbake akraino-image-rec 2>&1|tee logs/bitbake_akraino-image-rec_${TIMESTAMP}.log
+
+# Build the container image
+bitbake wr-app-container 2>&1|tee logs/bitbake_wr-app-container_${TIMESTAMP}.log
