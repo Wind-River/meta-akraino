@@ -1,3 +1,11 @@
+Copyright (C) 2019 Wind River Systems, Inc.
+
+Source code included in the tree for individual recipes is under the LICENSE
+stated in the associated recipe (.bb file) unless otherwise stated.
+
+The metadata is under the following license unless otherwise stated.
+
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/

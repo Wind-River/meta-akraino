@@ -1,13 +1,59 @@
-# meta-akraino
-OpenEmbedded/Yocto compatible layer for Akraino
+# Overview 
 
-This is an initial layer to port Akraino to Yocto linux, and it's not ready for consumption yet.
+meta-akraino is an OpenEmbedded/Yocto compatible layer for Akraino
 
-## How to use
+# Project License
+
+Copyright (C) 2019 Wind River Systems, Inc.
+
+Source code included in the tree for individual recipes is under the LICENSE
+stated in the associated recipe (.bb file) unless otherwise stated.
+
+The metadata is under the following license unless otherwise stated.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+# Dependencies
+This layer depends on the following layers:
+  * oe-core version supplied with Wind River Linux 10.18
+  * oe-core
+  * intel-x86
+  * meta-anaconda
+  * meta-dpdk
+  * meta-intel
+  * meta-openembedded
+  * meta-realtime
+  * meta-secure-core
+  * meta-security
+  * meta-selinux
+  * meta-virtualization
+  * meta-starlingx
+  * meta-security
+  * meta-rauc
+  * meta-cloud-services
+  * wrlinux
+  * wr-template
+  * wrlinux-x
+
+# Maintenance
+This layer is maintained by Wind River Systems, Inc.
+Contact "Huang Jackie <jackie.huang@windriver.com>" or "Gooch, Stephen <stephen.gooch@windriver.com>"
+
+# Prerequisite
 
 > Note: It's in initial stage now, and based on the work in meta-starlingX and wrlinux 10.18
 
-* Prerequisite:
+* Host requirements
   * Your host need to meet the requirements for Yocto, please refer to:
     * [Compatible Linux Distribution](https://www.yoctoproject.org/docs/2.6.3/brief-yoctoprojectqs/brief-yoctoprojectqs.html#brief-compatible-distro)
     * [Supported Linux Distributions](https://www.yoctoproject.org/docs/2.6.3/ref-manual/ref-manual.html#detailed-supported-distros)
@@ -22,6 +68,8 @@ This is an initial layer to port Akraino to Yocto linux, and it's not ready for 
   ```
   $ docker run hello-world
   ```
+
+# Steps to build the image
 
 ### Use wrapper script build_akraino.sh to build the image
 
