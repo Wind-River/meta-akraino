@@ -14,3 +14,9 @@
 #  limitations under the License.
 
 FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
+
+SRC_URI += "file://init-install.sh-fix-rootfs.img-not-found-issue.patch;apply=no"
+
+do_install_append () {
+	patch ${D}/init.d/install.sh ${WORKDIR}/init-install.sh-fix-rootfs.img-not-found-issue.patch
+}

@@ -1,0 +1,50 @@
+From ac4f4af4055c2c516db004609d5780c010407780 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Fri, 8 Nov 2019 11:03:18 +0800
+Subject: [PATCH 2/2] init-install-efi.sh: fix rootfs.img not found issue
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ meta/recipes-core/initrdscripts/files/init-install-efi.sh | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/meta/recipes-core/initrdscripts/files/init-install-efi.sh b/meta/recipes-core/initrdscripts/files/init-install-efi.sh
+index 6e4f3aa..46a6e36 100644
+--- a/meta/recipes-core/initrdscripts/files/init-install-efi.sh
++++ b/meta/recipes-core/initrdscripts/files/init-install-efi.sh
+@@ -131,13 +131,17 @@ device=/dev/$TARGET_DEVICE_NAME
+ #
+ # The udev automounter can cause pain here, kill it
+ #
+-rm -f /etc/udev/rules.d/automount.rules
+-rm -f /etc/udev/scripts/mount*
++#rm -f /etc/udev/rules.d/automount.rules
++#rm -f /etc/udev/scripts/mount*
+ 
+ #
+ # Unmount anything the automounter had mounted
+ #
+-umount ${device}* 2> /dev/null || /bin/true
++#umount ${device}* 2> /dev/null || /bin/true
++
++for dir in `awk '/\/dev.* \/run\/media/{print $2}' /proc/mounts | grep $TARGET_DEVICE_NAME`; do
++	umount $dir
++done
+ 
+ mkdir -p /tmp
+ 
+@@ -228,6 +232,11 @@ mkdir -p /boot
+ 
+ # Handling of the target root partition
+ mount $rootfs /tgt_root
++
++if [ ! -f /run/media/$1/$2 ]; then
++    mkdir -p /run/media/$1
++    mount /dev/$1 /run/media/$1
++fi
+ mount -o rw,loop,noatime,nodiratime /run/media/$1/$2 /src_root
+ echo "Copying rootfs files..."
+ cp -a /src_root/* /tgt_root
+-- 
+2.7.4
+
