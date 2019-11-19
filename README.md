@@ -104,7 +104,7 @@ $ git clone --branch WRLINUX_10_18_BASE \
   git://github.com/WindRiver-Labs/wrlinux-x.git
 
 # Setup
-$ ./wrlinux-x/build_akraino.sh --machines intel-x86-64
+$ ./wrlinux-x/setup.sh --machines intel-x86-64
 ```
 
 #### 2. Clone meta-akraino layer and required layers
