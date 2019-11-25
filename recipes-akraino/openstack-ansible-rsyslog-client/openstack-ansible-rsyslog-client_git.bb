@@ -35,6 +35,7 @@ DEPENDS += " \
 
 RDEPENDS_${PN} += " \
         bash \
+        rsyslog \
         "
 do_install() {
 
