@@ -1,0 +1,29 @@
+From 4eae40d3d5f096d5bf048bf858981fe3aacaa6be Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Tue, 17 Dec 2019 11:31:06 +0800
+Subject: [PATCH] init-install-efi.sh: copy the guest-image.img for REC depolyment
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ init.d/install-efi.sh | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/init.d/install-efi.sh b/init.d/install-efi.sh
+index 46a6e36..58d5b1a 100755
+--- a/init.d/install-efi.sh
++++ b/init.d/install-efi.sh
+@@ -251,6 +251,11 @@ if [ -d /tgt_root/etc/ ] ; then
+     fi
+ fi
+ 
++echo "Copying cloud guest image"
++IMAGE_DIR="/tgt_root/opt/images"
++mkdir -p $IMAGE_DIR
++cp -f /run/media/$1/$2 $IMAGE_DIR/guest-image.img
++
+ umount /src_root
+ 
+ # Handling of the target boot partition
+-- 
+2.7.4
+

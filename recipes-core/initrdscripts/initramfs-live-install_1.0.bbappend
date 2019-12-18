@@ -15,8 +15,11 @@
 
 FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
 
-SRC_URI += "file://init-install.sh-fix-rootfs.img-not-found-issue.patch;apply=no"
+SRC_URI += "file://init-install.sh-fix-rootfs.img-not-found-issue.patch;apply=no \
+            file://init-install.sh-copy-the-guest-image.img-for-REC-dep.patch;apply=no \
+"
 
 do_install_append () {
 	patch ${D}/install.sh ${WORKDIR}/init-install.sh-fix-rootfs.img-not-found-issue.patch
+	patch ${D}/install.sh ${WORKDIR}/init-install.sh-copy-the-guest-image.img-for-REC-dep.patch
 }

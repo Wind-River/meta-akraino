@@ -1,0 +1,30 @@
+From 6e6ec845f7270af0573c1052fe7aa67b103a26c3 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Tue, 17 Dec 2019 11:19:18 +0800
+Subject: [PATCH] init-install.sh: copy the guest-image.img for REC depolyment
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ init.d/install.sh | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/init.d/install.sh b/init.d/install.sh
+index 9eae75f..0152d9b 100755
+--- a/init.d/install.sh
++++ b/init.d/install.sh
+@@ -274,6 +274,12 @@ if [ -d /tgt_root/etc/ ] ; then
+         echo "${device}" >> /tgt_root/etc/udev/mount.blacklist
+     fi
+ fi
++
++echo "Copying cloud guest image"
++IMAGE_DIR="/tgt_root/opt/images"
++mkdir -p $IMAGE_DIR
++cp -f /run/media/$1/$2 $IMAGE_DIR/guest-image.img
++
+ umount /tgt_root
+ umount /src_root
+ 
+-- 
+2.7.4
+
