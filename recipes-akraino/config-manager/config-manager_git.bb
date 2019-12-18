@@ -29,7 +29,7 @@ SRC_URI = "git://gerrit.akraino.org/r/ta/config-manager.git;protocol=${PROTOCOL}
 
 inherit akraino-version distutils-base
 
-_platform_bin_path = "/usr/sbin"
+_platform_bin_path = "/usr/local/bin"
 native_python_bin = "${STAGING_BINDIR_NATIVE}/${PYTHON_PN}-native/${PYTHON_PN}"
 
 do_install_append() {
@@ -64,6 +64,9 @@ do_install_append() {
     cd serviceprofiles/python && ${native_python_bin} setup.py install --root ${D} --no-compile --install-purelib ${PYTHON_SITEPACKAGES_DIR} build_scripts --executable ${bindir}/python && cd -
 
     cd hostcli && ${native_python_bin} setup.py install --root ${D} --no-compile --install-purelib ${PYTHON_SITEPACKAGES_DIR} build_scripts --executable ${bindir}/python && cd -
+
+    # fix hardcoded paths
+    sed -i -e "s;${base_bindir}/redis;${bindir}/redis;" ${D}/opt/cmframework/scripts/common.sh
 }
 
 SYSTEMD_SERVICE_${PN} = "config-manager.service cmagent.service"
@@ -72,6 +75,7 @@ FILES_${PN} += "\
     ${systemd_system_unitdir}/config-manager.service \
     ${systemd_system_unitdir}/cmagent.service \
     /opt/cmframework \
+    ${_platform_bin_path} \
     ${PYTHON_SITEPACKAGES_DIR}\
 "
 
