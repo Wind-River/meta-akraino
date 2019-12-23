@@ -40,7 +40,9 @@ do_install() {
        rsync -rlpD ${S}/src/* ${D}/opt/start-menu
        rsync -rlpD ${S}/services/start-menu.service ${D}${systemd_system_unitdir}/start-menu.service
 
-       sed -i -e "s,${bindir}/systemctl,${base_bindir}/systemctl," ${D}${systemd_system_unitdir}/start-menu.service
+       sed -i -e "s,${bindir}/systemctl,${base_bindir}/systemctl," \
+              -e "s/syslog-ng/rsyslog/" \
+              ${D}${systemd_system_unitdir}/start-menu.service
 }
 
 FILES_${PN} += "/opt"
