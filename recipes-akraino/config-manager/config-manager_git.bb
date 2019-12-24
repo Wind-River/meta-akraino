@@ -93,4 +93,5 @@ DEPENDS += " \
 RDEPENDS_${PN} += " \
         bash \
         python \
+        python-ipaddr \
         "
