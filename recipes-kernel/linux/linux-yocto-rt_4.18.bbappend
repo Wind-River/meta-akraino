@@ -41,4 +41,5 @@ KERNEL_FEATURES_append += " \
     features/nfsd/nfsd-enable.scc \
     features/vfio/vfio.scc \
     features/xfs/xfs.scc \
+    features/ipmi/ipmi.scc \
 "
