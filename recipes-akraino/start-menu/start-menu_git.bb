@@ -47,4 +47,8 @@ do_install() {
 
 FILES_${PN} += "/opt"
 
-RDEPENDS_${PN} = "dialog bash"
+RDEPENDS_${PN} = " \
+    dialog \
+    bash \
+    ipcalc \
+"
