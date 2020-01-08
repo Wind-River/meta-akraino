@@ -43,6 +43,9 @@ do_install() {
        sed -i -e "s,${bindir}/systemctl,${base_bindir}/systemctl," \
               -e "s/syslog-ng/rsyslog/" \
               ${D}${systemd_system_unitdir}/start-menu.service
+
+       sed -i -e "s,${base_bindir}/os-net-config,${bindir}/os-net-config," \
+              ${D}/opt/start-menu/start_menu.sh
 }
 
 FILES_${PN} += "/opt"
