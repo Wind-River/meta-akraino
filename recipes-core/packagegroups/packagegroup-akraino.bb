@@ -86,10 +86,10 @@ RDEPENDS_${PN}-docker = "\
     caas-flannel \
     caas-kubedns \
     caas-swift \
+    caas-danm \
+    caas-kubernetes \
 "
 
 # Not added for now:
-#    caas-danm
-#    caas-hyperdanm
-#    caas-helm
-#    caas-kubernetes
+#   caas-helm
+#   caas-hyperdanm

@@ -24,7 +24,5 @@ PACKAGE_ARCH = "${MACHINE_ARCH}"
 inherit packagegroup
 
 RDEPENDS_${PN} = "\
-    cni \
     iproute2-tc \
-    kubernetes \
 "

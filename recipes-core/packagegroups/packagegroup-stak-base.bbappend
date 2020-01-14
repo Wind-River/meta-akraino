@@ -87,6 +87,10 @@ RDEPENDS_packagegroup-stak-base += " \
     ${@bb.utils.contains('INCOMPATIBLE_LICENSE', 'GPLv3+', '', 'screen', d)} \
 "
 
+RDEPENDS_packagegroup-stak-base_remove = " \
+    kubernetes \
+"
+
 RDEPENDS_packagegroup-stak-perl += " \
     perl \
     perl-misc \
