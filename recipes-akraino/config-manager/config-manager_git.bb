@@ -22,7 +22,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 STABLE = "master"
 PROTOCOL = "https"
 BRANCH = "master"
-SRCREV = "50946f85336ce917e6004e533a5f6aefee2c5474"
+SRCREV = "6304ee33ecdd870a39781b9adb273d6b8f4f7802"
 S = "${WORKDIR}/git"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/config-manager.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH}"
