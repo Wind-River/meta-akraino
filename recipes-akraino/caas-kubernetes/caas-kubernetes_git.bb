@@ -123,7 +123,6 @@ do_install () {
 
 pkg_postinst_ontarget_${PN} () {
 	mkdir -p ${postconfig_path}
-	ln -s ${playbooks_path}/${COMPONENT}.yaml ${postconfig_path}/
 	ln -s ${playbooks_path}/bootstrap_kube_proxy.yaml          ${postconfig_path}/
 	ln -s ${playbooks_path}/bootstrap_kubelet.yaml             ${postconfig_path}/
 	ln -s ${playbooks_path}/kube_master.yaml                   ${postconfig_path}/
@@ -140,7 +139,6 @@ pkg_postinst_ontarget_${PN} () {
 
 pkg_postrm_${PN} () {
 	if [ $1 -eq 0 ]; then
-		rm -f ${postconfig_path}/${COMPONENT}.yaml
 		rm -f %{postconfig_path}/bootstrap_kube_proxy.yaml
 		rm -f %{postconfig_path}/bootstrap_kubelet.yaml
 		rm -f %{postconfig_path}/kube_master.yaml
