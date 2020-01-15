@@ -22,7 +22,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=2ee41112a44fe7014dce33e26468ba93 \
                     file://danm/LICENSE;md5=eed9a83a00903ca2207bc3aeae6e9a43"
 
 PROTOCOL = "https"
-SRCREV_caas-danm = "31349430c54e4ce1f649376614e4b09738954d5d"
+SRCREV_caas-danm = "a7fdbdf37816d2beced1bbe1cd6f2b24c207980f"
 SRCREV_danm = "${DANM_VERSION}"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/caas-danm;protocol=${PROTOCOL};name=caas-danm \
@@ -38,8 +38,8 @@ S = "${WORKDIR}/git"
 inherit docker-build
 
 MAJOR_VERSION = "4.0.0"
-MINOR_VERSION = "2"
-DANM_VERSION = "v${MAJOR_VERSION}"
+MINOR_VERSION = "7"
+DANM_VERSION = "7b0634aa1693c1d91ef5cfb025f2deda77941155"
 CNI_VERSION = "0.7.0"
 GO_VERSION = "1.12.1"
 SRIOV_VERSION = "9e4c973b2ac517c64867e33d61aee152d70dc330"

@@ -23,7 +23,7 @@ LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=2ee41112a44fe7014dce33e26468ba93"
 
 PROTOCOL = "https"
-SRCREV = "31349430c54e4ce1f649376614e4b09738954d5d"
+SRCREV = "a7fdbdf37816d2beced1bbe1cd6f2b24c207980f"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/caas-danm;protocol=${PROTOCOL}"
 
