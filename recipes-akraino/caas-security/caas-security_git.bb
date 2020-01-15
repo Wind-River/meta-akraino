@@ -21,7 +21,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=c8c61a9e78acc1e713ef4c6c14e14e54"
 STABLE = "master"
 PROTOCOL = "https"
 BRANCH = "master"
-SRCREV = "429f53ca35c087ea854a2987c3b56e0916526bec"
+SRCREV = "88263c34607357ef8173360a5e1429acd0bfc3c4"
 S = "${WORKDIR}/git/"
 GIT = "${WORKDIR}/git"
 
