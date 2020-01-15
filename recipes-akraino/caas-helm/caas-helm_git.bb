@@ -20,7 +20,7 @@ LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=2ee41112a44fe7014dce33e26468ba93"
 
 PROTOCOL = "https"
-SRCREV = "5c8e0ac9f56da49dffcd4f3200d54f615a395cce"
+SRCREV = "bce256cf51876e7bd62767d4102cf1ba56577665"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/caas-helm;protocol=${PROTOCOL}"
 
@@ -29,11 +29,13 @@ S = "${WORKDIR}/git"
 inherit docker-build
 
 MAJOR_VERSION = "2.14.3"
-MINOR_VERSION = "2"
+MINOR_VERSION = "3"
 GO_VERSION = "1.12.9"
 
 binary_build_dir = "${B}/binary-save"
 built_binaries_dir = "/binary-save"
+centos_build = "191001"
+build_arch = "x86_64"
 
 PV = "${MAJOR_VERSION}-${MINOR_VERSION}"
 
@@ -45,6 +47,9 @@ HELM_EXTRA_ARG = ' \
 '
 
 do_compile () {
+	wget --progress=dot:giga \
+		http://artifacts.ci.centos.org/sig-cloudinstance/centos-7-${centos_build}/${build_arch}/centos-7-${build_arch}-docker.tar.xz \
+		-O ${docker_build_dir}/helm-builder/centos-7-docker.tar.xz
 	# Build HELM binaries
 	${docker_bin} build \
 		${DOCKER_ARG_PROXY} \

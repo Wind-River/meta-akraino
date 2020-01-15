@@ -21,7 +21,7 @@ LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=2ee41112a44fe7014dce33e26468ba93"
 
 PROTOCOL = "https"
-SRCREV = "5c8e0ac9f56da49dffcd4f3200d54f615a395cce"
+SRCREV = "bce256cf51876e7bd62767d4102cf1ba56577665"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/caas-helm;protocol=${PROTOCOL}"
 
@@ -30,7 +30,7 @@ S = "${WORKDIR}/git"
 inherit docker-build
 
 MAJOR_VERSION = "1.0.0"
-MINOR_VERSION = "9"
+MINOR_VERSION = "10"
 GO_VERSION = "1.12.9"
 
 PV = "${MAJOR_VERSION}-${MINOR_VERSION}"
