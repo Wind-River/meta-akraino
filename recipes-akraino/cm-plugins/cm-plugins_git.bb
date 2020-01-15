@@ -18,7 +18,7 @@ DESCRIPTION = "Plugins for configuration manager"
 STABLE = "master"
 PROTOCOL = "https"
 BRANCH = "master"
-SRCREV = "b3603a371a729a17e5130216fc71d67b6f0827e8"
+SRCREV = "174629ea1aeb5b719f8bf28f78671119399f391d"
 S = "${WORKDIR}/git"
 
 LICENSE = "Apache-2.0"
