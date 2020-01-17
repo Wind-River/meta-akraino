@@ -37,7 +37,7 @@ This layer depends on the following layers:
   * meta-security
   * meta-selinux
   * meta-virtualization
-  * meta-starlingx
+  * meta-starlingX
   * meta-security
   * meta-rauc
   * meta-cloud-services
@@ -74,7 +74,7 @@ Contact "Huang Jackie <jackie.huang@windriver.com>" or "Gooch, Stephen <stephen.
 ### Use wrapper script build_akraino.sh to build the image
 
 ```
-$ wget http://stash.wrs.com/users/jhuang0/repos/meta-akraino/raw/scripts/build_akraino.sh
+$ wget https://raw.githubusercontent.com/Wind-River/meta-akraino/master/scripts/build_akraino.sh
 $ chmod +x build_akraino.sh
 $ WORKSPACE=/path/to/workspace
 $ ./build_akraino.sh ${WORKSPACE}
@@ -112,13 +112,13 @@ $ ./wrlinux-x/setup.sh --machines intel-x86-64
 ```
 # clone the repos
 $ cd $SRC_EXTRA_DIR
-$ git clone http://stash.wrs.com/scm/~jhuang0/meta-akraino.git
+$ git clone https://github.com/Wind-River/meta-akraino.git
 $ git clone --branch thud git://github.com/rauc/meta-rauc.git
 $ git clone --branch thud git://git.yoctoproject.org/meta-security
 
 # There are some fixes and workaround in these layers, so use the
 # personal foked ones for now
-$ git clone --branch WRLINUX_10_18_BASE_akraino http://stash.wrs.com/scm/~jhuang0/meta-starlingx.git 
+$ git clone --branch WRLINUX_10_18_BASE_akraino https://github.com/jackiehjm/meta-starlingX.git 
 $ git clone --branch WRLINUX_10_18_BASE_akraino git://github.com/jackiehjm/meta-cloud-services.git
 ```
 
@@ -135,7 +135,7 @@ $ . ./oe-init-build-env $PRJ_BUILD_DIR
 ```
 $ cd $PRJ_BUILD_DIR
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-akraino
-$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-starlingx
+$ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-starlingX
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-rauc
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-security
 $ bitbake-layers add-layer $SRC_EXTRA_DIR/meta-security/meta-tpm
