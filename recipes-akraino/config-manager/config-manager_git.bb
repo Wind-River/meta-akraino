@@ -25,7 +25,9 @@ BRANCH = "master"
 SRCREV = "6304ee33ecdd870a39781b9adb273d6b8f4f7802"
 S = "${WORKDIR}/git"
 
-SRC_URI = "git://gerrit.akraino.org/r/ta/config-manager.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH}"
+SRC_URI = "git://gerrit.akraino.org/r/ta/config-manager.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH} \
+           file://0001-cmdatahandlers-work-around.patch \
+"
 
 inherit akraino-version distutils-base
 

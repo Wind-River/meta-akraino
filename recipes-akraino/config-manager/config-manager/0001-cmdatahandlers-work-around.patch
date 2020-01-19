@@ -1,0 +1,36 @@
+From 1e6c2d656f0982d19ba7b66faa3649291af18fe8 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Mon, 20 Jan 2020 06:24:55 +0800
+Subject: [PATCH] cmdatahandlers: work around
+
+work around for:
+Mon Jan 13 08:24:58 UTC 2020 (error) run_cmd Failed with error Traceback (most recent call last):
+  File "/opt/cmframework/userconfighandlers/caashandler.py", line 34, in handle
+    caasconf.add_defaults()
+  File "/usr/lib/python2.7/site-packages/cmdatahandlers/caas/config.py", line 116, in add_defaults
+    self.set_post_config()
+  File "/usr/lib/python2.7/site-packages/cmdatahandlers/caas/config.py", line 93, in set_post_config
+    user=self.get_caas_parameter('swift_credential').get('user'),
+AttributeError: 'str' object has no attribute 'get'
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ cmdatahandlers/src/cmdatahandlers/caas/config.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/cmdatahandlers/src/cmdatahandlers/caas/config.py b/cmdatahandlers/src/cmdatahandlers/caas/config.py
+index 7a2afb2..8a803d6 100644
+--- a/cmdatahandlers/src/cmdatahandlers/caas/config.py
++++ b/cmdatahandlers/src/cmdatahandlers/caas/config.py
+@@ -130,7 +130,7 @@ class Config(config.Config):
+         self.set_dynamic_config()
+         self.set_static_config()
+         self.set_default_values_to_optional_params()
+-        self.set_post_config()
++        #self.set_post_config()
+ 
+     def is_vnf_embedded_deployment(self):
+         return self.get_caas_only() and self.get_vnf_flag()
+-- 
+2.7.4
+
