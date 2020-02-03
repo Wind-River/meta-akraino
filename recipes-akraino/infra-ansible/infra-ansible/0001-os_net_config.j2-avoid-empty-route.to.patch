@@ -1,0 +1,29 @@
+From c7aceef9a302ea5093208c7e9dbf0c3d1487112d Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Mon, 3 Feb 2020 20:38:43 +0800
+Subject: [PATCH] os_net_config.j2: avoid empty route.to
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ roles/baremetal_interface_config/templates/os_net_config.j2 | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/roles/baremetal_interface_config/templates/os_net_config.j2 b/roles/baremetal_interface_config/templates/os_net_config.j2
+index 8496ab0..91d8012 100644
+--- a/roles/baremetal_interface_config/templates/os_net_config.j2
++++ b/roles/baremetal_interface_config/templates/os_net_config.j2
+@@ -115,6 +115,11 @@ for pretty printing the same.
+ {%- endmacro %}
+ 
+ {% macro add_static_routes(routes) -%}
++    {%- for route in routes %}
++        {%- if not route.to %}
++            {%- if routes.remove(route) %}{%- endif %}
++        {%- endif %}
++    {% endfor %}
+     [
+     {%- for route in routes %}
+         {
+-- 
+2.7.4
+

@@ -24,7 +24,9 @@ BRANCH = "master"
 SRCREV = "95119f5474d6d585b173fdffcb922d3b2a8c7ac9"
 S = "${WORKDIR}/git/"
 
-SRC_URI = "git://gerrit.akraino.org/r/ta/${PN}.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH}"
+SRC_URI = "git://gerrit.akraino.org/r/ta/${PN}.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH} \
+           file://0001-os_net_config.j2-avoid-empty-route.to.patch \
+"
 
 inherit akraino-version systemd 
 
