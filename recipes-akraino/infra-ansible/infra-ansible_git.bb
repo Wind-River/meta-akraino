@@ -21,7 +21,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 STABLE = "master"
 PROTOCOL = "https"
 BRANCH = "master"
-SRCREV = "a555e0e1024de52b97bbbc6c9f43e377315cda37"
+SRCREV = "95119f5474d6d585b173fdffcb922d3b2a8c7ac9"
 S = "${WORKDIR}/git/"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/${PN}.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH}"
