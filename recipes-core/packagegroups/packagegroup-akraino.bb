@@ -50,6 +50,7 @@ RDEPENDS_${PN}-base = "\
     image-provision \
     lockcli \
     monitoring \
+    nginx \
     ntp \
     openstack-ansible \
     openstack-ansible-galera-client \
