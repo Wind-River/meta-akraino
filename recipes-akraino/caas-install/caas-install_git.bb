@@ -191,7 +191,7 @@ FILES_caas-instantiate = " \
     ${cm_config_dir} \
 "
 
-RDEPENS_${PN} = " \
+RDEPENDS_${PN} = " \
     caas-utils \
     caas-instantiate \
     caas-infra-charts \
