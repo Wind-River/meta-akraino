@@ -73,6 +73,7 @@ RDEPENDS_${PN}-base = "\
     python-yarf \
     storage \
     start-menu \
+    uwsgi \
 "
 
 RDEPENDS_${PN}-docker = "\
