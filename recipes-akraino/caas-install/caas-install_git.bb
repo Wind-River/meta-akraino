@@ -28,7 +28,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=c8c61a9e78acc1e713ef4c6c14e14e54"
 DEPENDS = "rsync-native"
 
 PROTOCOL = "https"
-SRCREV = "3db56b654f20e4593956866672eb22b56d88015b"
+SRCREV = "b4f64181a4fa5e20fc28ae727beeee90852bcbea"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/caas-install;protocol=${PROTOCOL};rev=${SRCREV}"
 
@@ -40,20 +40,14 @@ PACKAGES =+ "caas-utils caas-infra-charts caas-instantiate"
 
 MAJOR_VERSION = "1.0.0"
 
-PKGV_caas-utils = "${MAJOR_VERSION}-5"
-PKGV_caas-instantiate = "${MAJOR_VERSION}-13"
-PKGV_caas-infra-charts = "${MAJOR_VERSION}-20"
-
-KUBELET_PLUGINS_LOGDIR = "${localstatedir}/log/kubelet-plugins"
+PKGV_caas-utils = "${MAJOR_VERSION}-10"
+PKGV_caas-instantiate = "${MAJOR_VERSION}-20"
+PKGV_caas-infra-charts = "${MAJOR_VERSION}-34"
 
 do_install() {
 	# install for caas-utils
 	install -d ${D}${libexecdir}/caas
 	install -d ${D}${sysconfdir}/logrotate.d
-
-	install -m 0640 ${S}/utils/log/kubelet-plugins ${D}/etc/logrotate.d/
-	sed -i -e 's|{{ kubelet_plugings_log_dir }}|${KUBELET_PLUGINS_LOGDIR}|g' \
-		${D}/${sysconfdir}/logrotate.d/kubelet-plugins
 
 	install -m 0700 ${S}/utils/deploy/merge_image.sh ${D}${libexecdir}/caas
 
@@ -88,6 +82,7 @@ do_install() {
 	rsync -av --no-owner ${S}/ansible/roles/manifests ${D}/${roles_path}/
 	rsync -av --no-owner ${S}/ansible/roles/nodeconf ${D}/${roles_path}/
 	rsync -av --no-owner ${S}/ansible/roles/pre_config_all ${D}/${roles_path}/
+	rsync -av --no-owner ${S}/ansible/roles/log ${D}/${roles_path}/
 
 	install -d ${D}${ansible_filter_plugins_path}
 	rsync -av --no-owner ${S}/ansible/filter_plugins/* ${D}${ansible_filter_plugins_path}
@@ -113,25 +108,7 @@ do_install() {
 
 
 pkg_postinst_caas-utils () {
-	mkdir -p ${KUBELET_PLUGINS_LOGDIR}/
-	grep "#CaaS CUSTOM BEGIN" ${sysconfdir}/logrotate.d/syslog > /dev/null;
-	if [ $? -eq 0 ]; then
-  		sed -i -e '/#CaaS CUSTOM BEGIN/,/#CaaS CUSTOM END/d' ${sysconfdir}/logrotate.d/syslog
-  	fi
-
-	sed -i -e '/.*missingok/i #CaaS CUSTOM BEGIN\n    hourly\n    size 50\n#CaaS CUSTOM END' \
-		${sysconfdir}/logrotate.d/syslog
-
 	find ${libdir}/debug/usr/ -xtype l -exec rm -f {} \;
-}
-
-pkg_postrm_caas-utils () {
-	# If not upgrade, revert all CaaS related cusotmization
-	if [ $1 == 0 ]; then
-
-		sed -i -e '/#CaaS CUSTOM BEGIN/,/#CaaS CUSTOM END/d' ${sysconfdir}/logrotate.d/syslog
-		${base_bindir}/systemctl daemon-reload
-	fi
 }
 
 pkg_postinst_caas-infra-charts () {
@@ -171,7 +148,6 @@ pkg_postrm_caas-instantiate () {
 
 FILES_caas-utils = " \
     ${libexecdir}/caas/merge_image.sh \
-    ${sysconfdir}/logrotate.d/kubelet-plugins \
 "
 
 FILES_caas-infra-charts = " \
