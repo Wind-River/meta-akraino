@@ -107,13 +107,13 @@ do_install() {
 }
 
 
-pkg_postinst_caas-utils () {
+pkg_postinst_ontarget_caas-utils () {
 	find ${libdir}/debug/usr/ -xtype l -exec rm -f {} \;
 }
 
 pkg_postinst_caas-infra-charts () {
-	mkdir -p ${postconfig_path}
-	ln -sf ${playbooks_path}/install_caas_infra.yaml ${postconfig_path}
+	mkdir -p $D${postconfig_path}
+	ln -sf ${playbooks_path}/install_caas_infra.yaml $D${postconfig_path}
 }
 
 pkg_postrm_caas-infra-charts () {
@@ -121,17 +121,17 @@ pkg_postrm_caas-infra-charts () {
 }
 
 pkg_postinst_caas-instantiate () {
-	mkdir -p ${postconfig_path}
+	mkdir -p $D${postconfig_path}
 
-	ln -sf ${playbooks_path}/cloud_admin_user.yaml ${postconfig_path}/
-	ln -sf ${playbooks_path}/common.yaml           ${postconfig_path}/
-	ln -sf ${playbooks_path}/docker.yaml           ${postconfig_path}/
-	ln -sf ${playbooks_path}/image_push.yaml       ${postconfig_path}/
-	ln -sf ${playbooks_path}/openrc_hack.yaml      ${postconfig_path}/
-	ln -sf ${playbooks_path}/pre_config_all.yaml   ${postconfig_path}/
+	ln -sf ${playbooks_path}/cloud_admin_user.yaml $D${postconfig_path}/
+	ln -sf ${playbooks_path}/common.yaml           $D${postconfig_path}/
+	ln -sf ${playbooks_path}/docker.yaml           $D${postconfig_path}/
+	ln -sf ${playbooks_path}/image_push.yaml       $D${postconfig_path}/
+	ln -sf ${playbooks_path}/openrc_hack.yaml      $D${postconfig_path}/
+	ln -sf ${playbooks_path}/pre_config_all.yaml   $D${postconfig_path}/
 
-	mkdir -p ${finalize_path}/
-	ln -sf ${playbooks_path}/caas_cleanup.yaml     ${finalize_path}/
+	mkdir -p $D${finalize_path}/
+	ln -sf ${playbooks_path}/caas_cleanup.yaml     $D${finalize_path}/
 }
 
 pkg_postrm_caas-instantiate () {
