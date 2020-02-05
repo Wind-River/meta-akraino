@@ -66,6 +66,7 @@ RDEPENDS_${PN}-base = "\
     python-ironic \
     python-ironic-virtmedia-driver \
     python-ironicclient \
+    python-m2crypto \
     python-peewee \
     python-yarf \
     storage \
