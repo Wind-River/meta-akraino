@@ -1,0 +1,46 @@
+From d18b7a7fc8e97a58ddb4c632eee2a9aa9fa7a961 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Thu, 6 Feb 2020 17:20:28 +0800
+Subject: [PATCH] dpdk: fix for parellel make issue
+
+To make sure that the path of libraries should be correct and
+libraries will be build before, And available at the time of
+linking example apps.
+
+Signed-off-by: Rahul Kumar Gupta <rahul.kumarxx.gupta@intel.com>
+
+rebase for 18.11.4
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ examples/Makefile                     | 1 +
+ examples/ethtool/ethtool-app/Makefile | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/examples/Makefile b/examples/Makefile
+index 33fe0e5..1a3966f 100644
+--- a/examples/Makefile
++++ b/examples/Makefile
+@@ -14,6 +14,7 @@ DIRS-$(CONFIG_RTE_LIBRTE_BBDEV) += bbdev_app
+ DIRS-$(CONFIG_RTE_LIBRTE_PMD_BOND) += bond
+ DIRS-y += cmdline
+ DIRS-$(CONFIG_RTE_LIBRTE_DISTRIBUTOR) += distributor
++DEPDIRS-y += examples/ethtool/lib
+ DIRS-y += ethtool
+ DIRS-y += exception_path
+ DIRS-$(CONFIG_RTE_LIBRTE_EFD) += server_node_efd
+diff --git a/examples/ethtool/ethtool-app/Makefile b/examples/ethtool/ethtool-app/Makefile
+index 9ecfc0b..fb5fdc4 100644
+--- a/examples/ethtool/ethtool-app/Makefile
++++ b/examples/ethtool/ethtool-app/Makefile
+@@ -19,6 +19,7 @@ SRCS-y := main.c ethapp.c
+ CFLAGS += -O3 -pthread -I$(SRCDIR)/../lib
+ CFLAGS += $(WERROR_FLAGS)
+ 
++LDLIBS += -L$(ETHTOOL_LIB_PATH)/
+ LDLIBS += -L$(subst ethtool-app,lib,$(RTE_OUTPUT))/lib
+ LDLIBS += -lrte_ethtool
+ 
+-- 
+2.7.4
+
