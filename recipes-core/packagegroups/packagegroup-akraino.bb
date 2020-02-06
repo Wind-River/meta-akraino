@@ -37,6 +37,7 @@ RDEPENDS_${PN} = "\
 RDEPENDS_${PN}-base = "\
     access-management \
     ansible-role-ntp \
+    ceph-ansible \
     caas-security \
     caas-install \
     caas-lcm \
