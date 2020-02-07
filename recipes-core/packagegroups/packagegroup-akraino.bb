@@ -71,6 +71,7 @@ RDEPENDS_${PN}-base = "\
     python-ironicclient \
     python-m2crypto \
     python-peewee \
+    python-shade \
     python-yarf \
     storage \
     start-menu \
