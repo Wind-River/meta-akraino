@@ -59,6 +59,7 @@ do_install() {
 	install -d ${D}${roles_path}
 	rsync -av --no-owner ${S}/ansible/roles/install_caas_infra ${D}${roles_path}
 	rsync -av --no-owner ${S}/ansible/roles/pre_install_caas_infra ${D}${roles_path}
+	rsync -av --no-owner ${S}/ansible/roles/post_install_caas_infra ${D}${roles_path}
 	rsync -av --no-owner ${S}/ansible/roles/infra_chart_reconfig ${D}${roles_path}
 
 	install -d ${D}${caas_chart_path}
