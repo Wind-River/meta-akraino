@@ -22,7 +22,9 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=2ee41112a44fe7014dce33e26468ba93"
 PROTOCOL = "https"
 SRCREV = "bce256cf51876e7bd62767d4102cf1ba56577665"
 
-SRC_URI = "git://gerrit.akraino.org/r/ta/caas-helm;protocol=${PROTOCOL}"
+SRC_URI = "git://gerrit.akraino.org/r/ta/caas-helm;protocol=${PROTOCOL} \
+           file://caas-helm-replace-git-with-tarball.patch \
+"
 
 S = "${WORKDIR}/git"
 
@@ -86,7 +88,7 @@ do_install () {
 	rsync -rlpD ${S}/ansible/roles/${COMPONENT} ${D}${roles_path}
 
 	install -D ${S}/ansible/playbooks/${COMPONENT}.yaml ${D}/${playbooks_path}/${COMPONENT}.yaml
-	install -D -m 0755 ${binary_build_dir}/${COMPONENT} ${S}/${bindir}/${COMPONENT}
+	install -D -m 0755 ${binary_build_dir}/${COMPONENT} ${D}/${bindir}/${COMPONENT}
 }
 
 pkg_postinst_ontarget_${PN} () {
@@ -106,3 +108,5 @@ FILES_${PN} += "\
     ${roles_path} \
     ${playbooks_path} \
 "
+
+INSANE_SKIP_${PN} += "already-stripped"

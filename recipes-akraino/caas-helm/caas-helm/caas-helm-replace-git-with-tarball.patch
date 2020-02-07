@@ -1,0 +1,28 @@
+Replace git with fixed version tarball
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ docker-build/helm-builder/Dockerfile | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/docker-build/helm-builder/Dockerfile b/docker-build/helm-builder/Dockerfile
+index 23b41d8..93a4ef6 100644
+--- a/docker-build/helm-builder/Dockerfile
++++ b/docker-build/helm-builder/Dockerfile
+@@ -35,10 +35,9 @@ RUN yum install -y --setopt=skip_missing_names_on_install=False \
+ &&  curl -fsSL -k https://dl.google.com/go/go${go_version}.linux-${HOST_ARCH}.tar.gz | tar zx --strip-components=1 -C ${go_install_dir} \
+ \
+ # Build Helm
+-&&  mkdir -p $GOPATH/src/k8s.io \
+-&&  cd $GOPATH/src/k8s.io \
+-&&  git clone https://github.com/kubernetes/helm.git \
+-&&  cd helm \
++&&  mkdir -p $GOPATH/src/k8s.io/helm \
++&&  curl -fsSL -k https://github.com/helm/helm/archive/v${HELM_VERSION}.tar.gz | tar zx --strip-components=1 -C $GOPATH/src/k8s.io/helm \
++&&  cd $GOPATH/src/k8s.io/helm \
+ &&  make GIT_TAG=v${HELM_VERSION} bootstrap build-cross \
+ &&  mkdir -p ${binaries} \
+ &&  mv ./_dist/linux-${HOST_ARCH}/tiller ${binaries}/ \
+-- 
+2.7.4
+
