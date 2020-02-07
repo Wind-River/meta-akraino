@@ -49,6 +49,8 @@ RDEPENDS_${PN}-base = "\
     hostcli \
     hw-detector \
     image-provision \
+    keystone \
+    keystone-setup \
     lockcli \
     monitoring \
     nginx \
@@ -69,6 +71,7 @@ RDEPENDS_${PN}-base = "\
     python-ironic \
     python-ironic-virtmedia-driver \
     python-ironicclient \
+    python-keystone \
     python-m2crypto \
     python-peewee \
     python-shade \

@@ -6,7 +6,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=1dece7821bf3fd70fe1309eaa37d52a2"
 
 SRCNAME = "keystone"
 
-SRC_URI = "git://github.com/openstack/${SRCNAME}.git;branch=stable/pike \
+SRC_URI = "git://github.com/openstack/${SRCNAME}.git;branch=stable/queens \
            file://keystone-init \
            file://keystone-init.service \
            file://keystone.conf \
@@ -21,8 +21,8 @@ SRC_URI = "git://github.com/openstack/${SRCNAME}.git;branch=stable/pike \
 # file://keystone-remove-git-commands-in-tests.patch 
 # file://keystone-explicitly-import-localcontext-from-oslo.me.patch
 
-SRCREV = "d07677aba54362a4a3aa2d165b155105ffe30d73"
-PV = "12.0.0+git${SRCPV}"
+SRCREV = "db14ee24a7102f1f9f0f95ac55ea39da1fb88e26"
+PV = "13.0.2+git${SRCPV}"
 
 S = "${WORKDIR}/git"
 
@@ -210,15 +210,14 @@ FILES_${SRCNAME}-setup = " \
 
 ALLOW_EMPTY_${SRCNAME}-cronjobs = "1"
 
-FILES_${PN} = "${libdir}/* \
-    "
+FILES_${PN} = "${libdir}/*"
 
 FILES_${SRCNAME}-tests = "${sysconfdir}/${SRCNAME}/run_tests.sh"
 
 FILES_${SRCNAME} = "${bindir}/* \
     ${sysconfdir}/${SRCNAME}/* \
     ${localstatedir}/* \
-    ${datadir}/openstack-dashboard/openstack_dashboard/api/keystone-httpd.py \
+    ${datadir}/* \
     ${sysconfdir}/apache2/conf.d/keystone.conf \
     "
 
