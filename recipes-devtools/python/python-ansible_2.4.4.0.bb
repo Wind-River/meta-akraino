@@ -5,6 +5,7 @@ SRC_URI[md5sum] = "9a7ac4e4e3883ef4a0f49185d0a6dc4b"
 SRC_URI[sha256sum] = "2b02756b9b6bc02d9028a4577ef332f8126c607528e18db825672b0301343358"
 
 ANSIBLE_WHITELIST_MODULES = "  \
+    crypto \
     cloud \
     clustering \
     commands \
