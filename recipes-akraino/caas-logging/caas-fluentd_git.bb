@@ -23,7 +23,7 @@ LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=2ee41112a44fe7014dce33e26468ba93"
 
 PROTOCOL = "https"
-SRCREV = "18a4bea203375dcc595992f2b5679348958e33d0"
+SRCREV = "dbb52626787b945265e4dbfaee8a2905fa410b67"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/caas-logging;protocol=${PROTOCOL};rev=${SRCREV}"
 
