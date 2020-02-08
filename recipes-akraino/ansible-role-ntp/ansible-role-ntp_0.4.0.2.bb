@@ -23,13 +23,12 @@ SRCREV = "4fc673cfdf6cb3704a8be10cd10728a21be8f1bb"
 
 SRC_URI = "git://github.com/resmo/ansible-role-ntp;rev=${SRCREV} \
            file://0001-initial.patch \
+           file://0001-tasks-remove-the-parts-for-package-install.patch \
 "
 
 S = "${WORKDIR}/git"
 
-PV = "0.4.0+git${SRCREV}"
-
-RDEPENS_${PN} = "python-ansible"
+PV = "0.4.0.2+git${SRCREV}"
 
 do_install_append() {
 	cd ${S}
@@ -45,4 +44,14 @@ do_install_append() {
 	    --no-same-owner -cpf - . \
 	    | tar --no-same-owner -xpf - \
 	          -C ${D}${sysconfdir}/ansible/roles/ntp
+
+	chmod -R 0755 ${D}${sysconfdir}/ansible/roles/ntp
+
+	sed -i -e "s,${base_bindir}/python,${bindir}/python," \
+	    ${D}${sysconfdir}/ansible/roles/ntp/library/*.py
 }
+
+RDEPENDS_${PN} = " \
+    python \
+    python-ansible \
+"
