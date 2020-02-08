@@ -41,6 +41,7 @@ RDEPENDS_${PN}-base = "\
     caas-security \
     caas-install \
     caas-lcm \
+    caas-logging \
     infra-ansible \
     cm-plugins \
     config-encoder-macros \
