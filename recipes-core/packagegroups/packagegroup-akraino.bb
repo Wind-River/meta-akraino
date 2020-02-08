@@ -56,6 +56,9 @@ RDEPENDS_${PN}-base = "\
     monitoring \
     nginx \
     ntp \
+    ntpdate \
+    ntp-utils \
+    ntp-tickadj \
     openstack-ansible \
     openstack-ansible-galera-client \
     openstack-ansible-galera-server \
