@@ -50,8 +50,11 @@ RDEPENDS_packagegroup-stak-base += " \
     ncurses-tools \
     net-tools \
     openssh \
+    openssh-keygen \
+    openssh-misc \
     openssh-scp \
     openssh-sftp-server \
+    openssh-sftp \
     openssh-ssh \
     openssh-sshd \
     openvswitch \
