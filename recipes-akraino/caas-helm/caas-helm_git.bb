@@ -91,9 +91,9 @@ do_install () {
 	install -D -m 0755 ${binary_build_dir}/${COMPONENT} ${D}/${bindir}/${COMPONENT}
 }
 
-pkg_postinst_ontarget_${PN} () {
-	mkdir -p ${postconfig_path}
-	ln -s ${playbooks_path}/${COMPOENT}.yaml ${postconfig_path}/
+pkg_postinst_${PN} () {
+	mkdir -p $D${postconfig_path}
+	ln -s ${playbooks_path}/${COMPONENT}.yaml $D${postconfig_path}/
 }
 
 pkg_postrm_${PN} () {
