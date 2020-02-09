@@ -50,6 +50,8 @@ RDEPENDS_${PN}-base = "\
     hostcli \
     hw-detector \
     image-provision \
+    init-ifupdown \
+    ifupdown \
     keystone \
     keystone-setup \
     lockcli \
