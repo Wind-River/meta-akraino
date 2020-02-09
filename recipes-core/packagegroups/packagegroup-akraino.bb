@@ -92,6 +92,7 @@ RDEPENDS_${PN}-docker = "\
     caas-etcd \
     caas-fluentd \
     caas-helm \
+    caas-hyperdanm \
     caas-metrics-server \
     caas-prometheus \
     caas-registry \
@@ -103,6 +104,3 @@ RDEPENDS_${PN}-docker = "\
     caas-danm \
     caas-kubernetes \
 "
-
-# Not added for now:
-#   caas-hyperdanm
