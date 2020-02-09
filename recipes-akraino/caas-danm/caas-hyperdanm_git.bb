@@ -22,20 +22,24 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=2ee41112a44fe7014dce33e26468ba93 \
                     file://danm/LICENSE;md5=eed9a83a00903ca2207bc3aeae6e9a43"
 
 PROTOCOL = "https"
-SRCREV_caas-danm = "31349430c54e4ce1f649376614e4b09738954d5d"
+SRCREV_caas-danm = "a7fdbdf37816d2beced1bbe1cd6f2b24c207980f"
 SRCREV_danm = "${DANM_VERSION}"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/caas-danm;protocol=${PROTOCOL};name=caas-danm \
            git://github.com/nokia/danm.git;protocol=${PROTOCOL};name=danm;destsuffix=git/danm \
+           https://nexus3.akraino.org/repository/rpm.snapshots/TA/release-1/rpms/x86_64/caas-hyperdanm-4.0.0-5.el7.centos.ta.x86_64.rpm;name=rpm-caas-hyperdanm;subdir=rpm-caas-hyperdanm \
 "
+
+SRC_URI[rpm-caas-hyperdanm.md5sum] = "476e76d22ba0627f149bfddd2d326ddd"
+SRC_URI[rpm-caas-hyperdanm.sha256sum] = "cd5ad052060b6d230d543c63aa388bd67b2f83b30d7c853fab4d11b86b56cc3f"
 
 S = "${WORKDIR}/git"
 
 inherit docker-build
 
 MAJOR_VERSION = "4.0.0"
-MINOR_VERSION = "0"
-DANM_VERSION = "v${MAJOR_VERSION}"
+MINOR_VERSION = "5"
+DANM_VERSION = "7b0634aa1693c1d91ef5cfb025f2deda77941155"
 GO_VERSION = "1.12.1"
 
 binary_build_dir = "${B}/binary-save"
@@ -83,6 +87,22 @@ do_compile () {
 	${docker_bin} save ${COMPONENT}:${IMAGE_TAG} | xz -z -T2 > ${docker_save_dir}/${COMPONENT}:${IMAGE_TAG}.tar
 	${docker_bin} rmi -f ${COMPONENT}:${IMAGE_TAG}
 }
+
+#####################################################################
+# work around for docker build failre, we use the docker image from
+# akraino repository directly.
+#####################################################################
+do_compile () {
+	:
+}
+
+do_install () {
+	install -d ${D}${caas_container_tar_path}
+	rsync -rlpD ${WORKDIR}/rpm-caas-hyperdanm/${caas_container_tar_path}/${COMPONENT}:${IMAGE_TAG}.tar \
+		${D}${caas_container_tar_path}
+}
+
+########### work around done #########
 
 do_install_append () {
 	install -d ${D}${roles_path}
