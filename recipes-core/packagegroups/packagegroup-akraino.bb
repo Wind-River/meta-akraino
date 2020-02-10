@@ -72,6 +72,7 @@ RDEPENDS_${PN}-base = "\
     openstack-ansible-plugins \
     openstack-ansible-rabbitmq-server \
     openstack-ansible-rsyslog-client \
+    openstack-ironic-inspector \
     os-net-config \
     python-ilorest-library \
     python-ironic \
