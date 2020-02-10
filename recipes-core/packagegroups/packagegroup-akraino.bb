@@ -81,6 +81,7 @@ RDEPENDS_${PN}-base = "\
     python-m2crypto \
     python-peewee \
     python-shade \
+    python-virtualbmc \
     python-yarf \
     storage \
     start-menu \
