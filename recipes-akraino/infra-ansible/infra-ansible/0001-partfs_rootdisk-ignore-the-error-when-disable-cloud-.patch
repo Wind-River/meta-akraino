@@ -1,0 +1,28 @@
+From ca549c0871ed47b16b90861795f01081b9a249a1 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Mon, 10 Feb 2020 10:00:45 +0800
+Subject: [PATCH] partfs_rootdisk: ignore the error when disable cloud-init
+
+There is not services provided by the cloud-init package in yocto,
+so ignore the error when disable the services.
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ roles/partfs_rootdisk/tasks/main.yml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/roles/partfs_rootdisk/tasks/main.yml b/roles/partfs_rootdisk/tasks/main.yml
+index dd84759..5f36c11 100644
+--- a/roles/partfs_rootdisk/tasks/main.yml
++++ b/roles/partfs_rootdisk/tasks/main.yml
+@@ -36,6 +36,7 @@
+     - "cloud-final"
+     - "cloud-init"
+     - "cloud-init-local"
++  ignore_errors: yes
+ 
+ - name: Remove udev rule which enables dhcp on the first interface
+   file: path="/etc/udev/rules.d/70-persistent-net.rules" state=absent
+-- 
+2.7.4
+
