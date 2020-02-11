@@ -42,12 +42,14 @@ RDEPENDS_${PN}-base = "\
     caas-install \
     caas-lcm \
     caas-logging \
-    galera \
+    cloud-init \
+    cloud-init-systemd \
     infra-ansible \
     cm-plugins \
     config-encoder-macros \
     config-manager \
     distributed-state-server \
+    galera \
     grub \
     hostcli \
     hw-detector \
