@@ -1,0 +1,7 @@
+# short-description: Create a 'pcbios' direct disk image
+# long-description: Creates a partitioned legacy BIOS disk image that the user
+# can directly dd to boot media.
+
+part /boot --source bootimg-pcbios --ondisk sda --label boot --active --align 1024
+part / --source rootfs --use-uuid --fstype=ext4 --label rootfs --align 1024
+bootloader  --timeout=0  --append="vga=0 rw oprofile.timer=1 rootwait rootfstype=ext4 console=tty0 console=ttyS0,115200n8"
