@@ -52,6 +52,7 @@ RDEPENDS_${PN}-base = "\
     image-provision \
     init-ifupdown \
     ifupdown \
+    ipa-deployer \
     keystone \
     keystone-setup \
     lockcli \
