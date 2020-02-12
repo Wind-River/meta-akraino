@@ -48,6 +48,7 @@ RDEPENDS_${PN}-base = "\
     config-encoder-macros \
     config-manager \
     distributed-state-server \
+    grub \
     hostcli \
     hw-detector \
     image-provision \
