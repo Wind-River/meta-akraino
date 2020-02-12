@@ -14,3 +14,13 @@
 #  limitations under the License.
 
 require wrlinux-ovp/recipes-devtools/qemu/qemu-ovp-3.0.0.inc
+
+PACKAGECONFIG_remove_class-target = "spice rbd"
+
+PACKAGES =+ "${PN}-img"
+
+FILES_${PN}-img = "\
+    ${bindir}/qemu-img \
+    ${bindir}/qemu-io \
+    ${bindir}/qemu-nbd \
+"
