@@ -27,6 +27,7 @@ S = "${WORKDIR}/git/"
 SRC_URI = "git://gerrit.akraino.org/r/ta/${PN}.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH} \
            file://0001-os_net_config.j2-avoid-empty-route.to.patch \
            file://0002-partfs_rootdisk-redefine-the-vars-for-wrl.patch \
+           file://0003-partfs_rootdisk-fix-for-phy_disk_part_number.patch \
 "
 
 inherit akraino-version systemd 

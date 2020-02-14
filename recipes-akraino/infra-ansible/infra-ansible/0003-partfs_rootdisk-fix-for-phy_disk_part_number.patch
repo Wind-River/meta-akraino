@@ -1,0 +1,26 @@
+From 2fdf4efc86ab673c35cb625ae72313c45806b499 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Fri, 14 Feb 2020 22:25:11 +0800
+Subject: [PATCH] partfs_rootdisk: fix for phy_disk_part_number
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ roles/partfs_rootdisk/tasks/main.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/roles/partfs_rootdisk/tasks/main.yml b/roles/partfs_rootdisk/tasks/main.yml
+index dd84759..22cf9ee 100644
+--- a/roles/partfs_rootdisk/tasks/main.yml
++++ b/roles/partfs_rootdisk/tasks/main.yml
+@@ -97,7 +97,7 @@
+   vars:
+     part_start: "{{second_part_start}}GiB"
+     part_end: "{{second_part_end}}GB"
+-    phy_disk_part_number: 2
++    phy_disk_part_number: 4
+     create_disk_part: True
+ 
+ - name: system disk first partition size
+-- 
+2.7.4
+
