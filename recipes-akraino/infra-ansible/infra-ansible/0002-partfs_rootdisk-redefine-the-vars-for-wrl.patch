@@ -1,0 +1,83 @@
+From 423e2f2bec8f41e559bcc11478cb66dd79277bc8 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Fri, 14 Feb 2020 17:12:31 +0800
+Subject: [PATCH] partfs_rootdisk: redefine the vars for wrl
+
+The default partition table is not the same in wrl,
+so re-define the vars.
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ playbooks/partfs_rootdisk.yml                           | 4 ++--
+ playbooks/partfs_rootdisk_inst_cont.yml                 | 4 ++--
+ roles/partfs_rootdisk/defaults/main.yml                 | 2 +-
+ roles/partfs_rootdisk/tasks/root_disk_volume_groups.yml | 3 +++
+ 4 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/playbooks/partfs_rootdisk.yml b/playbooks/partfs_rootdisk.yml
+index 5bd2e38..2255786 100644
+--- a/playbooks/partfs_rootdisk.yml
++++ b/playbooks/partfs_rootdisk.yml
+@@ -37,5 +37,5 @@
+       - role: partfs_rootdisk
+         when: (reinitialized_nodes is defined or scaled_out_nodes is defined) and inventory_hostname in partfs_valid_nodes
+   vars:
+-    first_part_number: 1
+-    delete_partition: 2
++    first_part_number: 2
++    delete_partition: 3
+diff --git a/playbooks/partfs_rootdisk_inst_cont.yml b/playbooks/partfs_rootdisk_inst_cont.yml
+index fa023e4..d376190 100644
+--- a/playbooks/partfs_rootdisk_inst_cont.yml
++++ b/playbooks/partfs_rootdisk_inst_cont.yml
+@@ -19,5 +19,5 @@
+   roles:
+       - role: partfs_rootdisk
+   vars:
+-    first_part_number: 1
+-    delete_partition: 2
++    first_part_number: 3
++    delete_partition: 4
+diff --git a/roles/partfs_rootdisk/defaults/main.yml b/roles/partfs_rootdisk/defaults/main.yml
+index 210e0cd..2e02778 100644
+--- a/roles/partfs_rootdisk/defaults/main.yml
++++ b/roles/partfs_rootdisk/defaults/main.yml
+@@ -20,7 +20,7 @@ debug: False
+ root_disk: "{{ by_path_disks['os'] }}"
+ all_disk_size_for_volume_group_vg: "1"
+ 
+-first_part_size: 50
++first_part_size: 51
+ second_part_percentage: "{{ rootdisk_vg_percentage }}"
+ root_disk_left_size: "{{ root_disk_total_size.stdout | int - first_part_size | int }}"
+ second_part_size: "{{ root_disk_left_size | float * second_part_percentage | float  }}"
+diff --git a/roles/partfs_rootdisk/tasks/root_disk_volume_groups.yml b/roles/partfs_rootdisk/tasks/root_disk_volume_groups.yml
+index d0d5d84..ffdc1ad 100644
+--- a/roles/partfs_rootdisk/tasks/root_disk_volume_groups.yml
++++ b/roles/partfs_rootdisk/tasks/root_disk_volume_groups.yml
+@@ -41,6 +41,7 @@
+   parted:
+     device: "{{root_disk}}"
+     number: "{{phy_disk_part_number}}"
++    label: "gpt"
+     flags: [ lvm ]
+     state: present
+     part_start: "{{part_start}}"
+@@ -53,6 +54,7 @@
+   parted:
+     device: "{{root_disk}}"
+     number: "{{phy_disk_part_number}}"
++    label: "gpt"
+     flags: [ lvm ]
+     state: present
+     part_start: "{{part_start}}"
+@@ -136,5 +138,6 @@
+ 
+ - name: Grow xfs filesystem on Root partition
+   command: "xfs_growfs /"
++  ignore_errors: yes
+   args:
+     creates: /etc/partfs_rootdisk_created
+-- 
+2.7.4
+
