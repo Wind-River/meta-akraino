@@ -26,7 +26,6 @@ S = "${WORKDIR}/git/"
 
 SRC_URI = "git://gerrit.akraino.org/r/ta/${PN}.git;protocol=${PROTOCOL};rev=${SRCREV};branch=${BRANCH} \
            file://0001-os_net_config.j2-avoid-empty-route.to.patch \
-           file://0001-partfs_rootdisk-ignore-the-error-when-disable-cloud-.patch \
 "
 
 inherit akraino-version systemd 
