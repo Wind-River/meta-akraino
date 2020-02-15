@@ -1,0 +1,200 @@
+diff -rup cloud-init-17.1.orig/cloudinit/net/sysconfig.py cloud-init-17.1/cloudinit/net/sysconfig.py
+--- cloud-init-17.1.orig/cloudinit/net/sysconfig.py	2018-03-26 19:22:35.693111559 +0200
++++ cloud-init-17.1/cloudinit/net/sysconfig.py	2018-03-26 23:47:41.424803588 +0200
+@@ -586,7 +586,17 @@ class Renderer(renderer.Renderer):
+ 
+         # always write /etc/sysconfig/network configuration
+         sysconfig_path = util.target_path(target, "etc/sysconfig/network")
+-        netcfg = [_make_header(), 'NETWORKING=yes']
++        # Make sure that existing lines, other than overriding ones, remain
++        netcfg = []
++        for line in util.load_file(sysconfig_path, quiet=True).split('\n'):
++            if 'cloud-init' in line:
++                break
++            if not line.startswith(('NETWORKING=',
++                                    'IPV6_AUTOCONF=',
++                                    'NETWORKING_IPV6=')):
++                netcfg.append(line)
++        # Now generate the cloud-init portion of sysconfig/network
++        netcfg.extend([_make_header(), 'NETWORKING=yes'])
+         if network_state.use_ipv6:
+             netcfg.append('NETWORKING_IPV6=yes')
+             netcfg.append('IPV6_AUTOCONF=no')
+diff -rup cloud-init-17.1.orig/tests/unittests/test_distros/test_netconfig.py cloud-init-17.1/tests/unittests/test_distros/test_netconfig.py
+--- cloud-init-17.1.orig/tests/unittests/test_distros/test_netconfig.py	2018-03-26 19:22:35.717111557 +0200
++++ cloud-init-17.1/tests/unittests/test_distros/test_netconfig.py	2018-03-26 22:08:25.008717651 +0200
+@@ -384,6 +384,82 @@ hn0: flags=8843<UP,BROADCAST,RUNNING,SIM
+             buf.write(content)
+             write_bufs[filename] = buf
+ 
++        def replace_load_file(filename, *args, **kwargs):
++            if filename == '/etc/sysconfig/network':
++                return 'TEST=yes\nTEST2=yes'
++            else:
++                return ''
++
++        with ExitStack() as mocks:
++            mocks.enter_context(
++                mock.patch.object(util, 'write_file', replace_write))
++            mocks.enter_context(
++                mock.patch.object(util, 'load_file', replace_load_file))
++            mocks.enter_context(
++                mock.patch.object(os.path, 'isfile', return_value=False))
++
++            rh_distro.apply_network(BASE_NET_CFG, False)
++
++            self.assertEqual(len(write_bufs), 4)
++            self.assertIn('/etc/sysconfig/network-scripts/ifcfg-lo',
++                          write_bufs)
++            write_buf = write_bufs['/etc/sysconfig/network-scripts/ifcfg-lo']
++            expected_buf = '''
++DEVICE="lo"
++ONBOOT=yes
++'''
++            self.assertCfgEquals(expected_buf, str(write_buf))
++            self.assertEqual(write_buf.mode, 0o644)
++
++            self.assertIn('/etc/sysconfig/network-scripts/ifcfg-eth0',
++                          write_bufs)
++            write_buf = write_bufs['/etc/sysconfig/network-scripts/ifcfg-eth0']
++            expected_buf = '''
++DEVICE="eth0"
++BOOTPROTO="static"
++NETMASK="255.255.255.0"
++IPADDR="192.168.1.5"
++ONBOOT=yes
++GATEWAY="192.168.1.254"
++BROADCAST="192.168.1.0"
++'''
++            self.assertCfgEquals(expected_buf, str(write_buf))
++            self.assertEqual(write_buf.mode, 0o644)
++
++            self.assertIn('/etc/sysconfig/network-scripts/ifcfg-eth1',
++                          write_bufs)
++            write_buf = write_bufs['/etc/sysconfig/network-scripts/ifcfg-eth1']
++            expected_buf = '''
++DEVICE="eth1"
++BOOTPROTO="dhcp"
++ONBOOT=yes
++'''
++            self.assertCfgEquals(expected_buf, str(write_buf))
++            self.assertEqual(write_buf.mode, 0o644)
++
++            self.assertIn('/etc/sysconfig/network', write_bufs)
++            write_buf = write_bufs['/etc/sysconfig/network']
++            expected_buf = '''
++# Created by cloud-init v. 0.7
++NETWORKING=yes
++TEST=yes
++TEST2=yes
++'''
++            self.assertCfgEquals(expected_buf, str(write_buf))
++            self.assertEqual(write_buf.mode, 0o644)
++
++    def test_simple_write_rh_no_extra(self):
++        rh_distro = self._get_distro('rhel')
++
++        write_bufs = {}
++
++        def replace_write(filename, content, mode=0o644, omode="wb"):
++            buf = WriteBuffer()
++            buf.mode = mode
++            buf.omode = omode
++            buf.write(content)
++            write_bufs[filename] = buf
++
+         with ExitStack() as mocks:
+             mocks.enter_context(
+                 mock.patch.object(util, 'write_file', replace_write))
+@@ -453,6 +529,12 @@ NETWORKING=yes
+             buf.write(content)
+             write_bufs[filename] = buf
+ 
++        def replace_load_file(filename, *args, **kwargs):
++            if filename == '/etc/sysconfig/network':
++                return 'TEST=yes\nTEST2=yes'
++            else:
++                return ''
++
+         with ExitStack() as mocks:
+             # sysconfig availability checks
+             mocks.enter_context(
+@@ -460,7 +542,7 @@ NETWORKING=yes
+             mocks.enter_context(
+                 mock.patch.object(util, 'write_file', replace_write))
+             mocks.enter_context(
+-                mock.patch.object(util, 'load_file', return_value=''))
++                mock.patch.object(util, 'load_file', replace_load_file))
+             mocks.enter_context(
+                 mock.patch.object(os.path, 'isfile', return_value=True))
+ 
+@@ -509,6 +591,8 @@ USERCTL=no
+             expected_buf = '''
+ # Created by cloud-init v. 0.7
+ NETWORKING=yes
++TEST=yes
++TEST2=yes
+ '''
+             self.assertCfgEquals(expected_buf, str(write_buf))
+             self.assertEqual(write_buf.mode, 0o644)
+@@ -525,13 +609,20 @@ NETWORKING=yes
+             buf.write(content)
+             write_bufs[filename] = buf
+ 
++        def replace_load_file(filename, *args, **kwargs):
++            if filename == '/etc/sysconfig/network':
++                return 'TEST=yes\nTEST2=yes'
++            else:
++                return ''
++
+         with ExitStack() as mocks:
+             mocks.enter_context(
+                 mock.patch.object(util, 'write_file', replace_write))
+             mocks.enter_context(
+-                mock.patch.object(util, 'load_file', return_value=''))
++                mock.patch.object(util, 'load_file', replace_load_file))
+             mocks.enter_context(
+                 mock.patch.object(os.path, 'isfile', return_value=False))
++
+             rh_distro.apply_network(BASE_NET_CFG_IPV6, False)
+ 
+             self.assertEqual(len(write_bufs), 4)
+@@ -587,6 +678,8 @@ IPV6_DEFAULTGW="2607:f0d0:1002:0011::1"
+ NETWORKING=yes
+ NETWORKING_IPV6=yes
+ IPV6_AUTOCONF=no
++TEST=yes
++TEST2=yes
+ '''
+             self.assertCfgEquals(expected_buf, str(write_buf))
+             self.assertEqual(write_buf.mode, 0o644)
+@@ -604,13 +697,19 @@ IPV6_AUTOCONF=no
+             buf.write(content)
+             write_bufs[filename] = buf
+ 
++        def replace_load_file(filename, *args, **kwargs):
++            if filename == '/etc/sysconfig/network':
++                return 'TEST=yes\nTEST2=yes'
++            else:
++                return ''
++
+         with ExitStack() as mocks:
+             mocks.enter_context(
+                 mock.patch.object(util, 'which', return_value=True))
+             mocks.enter_context(
+                 mock.patch.object(util, 'write_file', replace_write))
+             mocks.enter_context(
+-                mock.patch.object(util, 'load_file', return_value=''))
++                mock.patch.object(util, 'load_file', replace_load_file))
+             mocks.enter_context(
+                 mock.patch.object(os.path, 'isfile', return_value=True))
+ 
+@@ -658,6 +757,8 @@ USERCTL=no
+ NETWORKING=yes
+ NETWORKING_IPV6=yes
+ IPV6_AUTOCONF=no
++TEST=yes
++TEST2=yes
+ '''
+             self.assertCfgEquals(expected_buf, str(write_buf))
+             self.assertEqual(write_buf.mode, 0o644)

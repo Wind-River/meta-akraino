@@ -1,0 +1,51 @@
+From e6037d15a8227edea134f6eb0e4e9bf35da8b004 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Sat, 15 Feb 2020 17:34:49 +0800
+Subject: [PATCH] cloud.cfg.tmpl: fix the render exception
+
+Fixed the issue:
+| RuntimeError: Failed running
+['/tmp-glibc/work/corei7-64-oe-linux/cloud-init/18.2-r0/recipe-sysroot-native/usr/bin/python-native/python',
+'./tools/render-cloudcfg', 'config/cloud.cfg.tmpl',
+'RENDERED_TEMPDD9X7ys/cloud.cfg'] [rc=1] (, Traceback (most recent call
+last):
+|   File "./tools/render-cloudcfg", line 44, in <module>
+|     main()
+|   File "./tools/render-cloudcfg", line 36, in main
+|     contents = (templater.render_string(contents,
+tpl_params)).rstrip() + "\n"
+|   File
+"/buildarea2/jhuang0/wrl_akraino_191031/prj_wrl1018_akraino/tmp-glibc/work/corei7-64-oe-linux/cloud-init/18.2-r0/cloud-init-18.2/cloudinit/templater.py",
+line 143, in render_string
+|     return renderer(content, params)
+|   File
+"/buildarea2/jhuang0/wrl_akraino_191031/prj_wrl1018_akraino/tmp-glibc/work/corei7-64-oe-linux/cloud-init/18.2-r0/cloud-init-18.2/cloudinit/templater.py",
+line 73, in basic_render
+|     return BASIC_MATCHER.sub(replacer, content)
+|   File
+"/buildarea2/jhuang0/wrl_akraino_191031/prj_wrl1018_akraino/tmp-glibc/work/corei7-64-oe-linux/cloud-init/18.2-r0/cloud-init-18.2/cloudinit/templater.py",
+line 71, in replacer
+|     return str(selected_params[key])
+| KeyError: 'user'
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ config/cloud.cfg.tmpl | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/config/cloud.cfg.tmpl b/config/cloud.cfg.tmpl
+index 3129d4e..0233cf0 100644
+--- a/config/cloud.cfg.tmpl
++++ b/config/cloud.cfg.tmpl
+@@ -14,7 +14,7 @@ users:
+    - default
+ 
+ # If this is set, 'root' will not be able to ssh in and they
+-# will get a message to login instead as the default $user
++# will get a message to login instead as the default 'user'
+ {% if variant in ["freebsd"] %}
+ disable_root: false
+ {% else %}
+-- 
+2.7.4
+

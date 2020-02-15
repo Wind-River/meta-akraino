@@ -1,0 +1,42 @@
+From a735a0e95143e39f5d63ec86f5a41737c5782822 Mon Sep 17 00:00:00 2001
+From: Eduardo Otubo <otubo@redhat.com>
+Date: Wed, 26 Sep 2018 13:57:42 +0200
+Subject: [PATCH 4/4] Adding disk_setup to rhel/cloud.cfg
+
+RH-Author: Eduardo Otubo <otubo@redhat.com>
+Message-id: <20180926135742.11140-5-otubo@redhat.com>
+Patchwork-id: 82299
+O-Subject: [RHEL-7.6 cloud-init PATCHv2 4/4] Adding disk_setup to rhel/cloud.cfg
+Bugzilla: 1560415
+RH-Acked-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+When Azure VM is de-allocated and started again its resource disk
+needs to be re-partitioned and a RHEL supported filesystem needs to be
+created on top. Include disk_setup module in the default RHEL config
+which does the job.
+
+X-downstream-only: yes
+Resolves: rhbz#1560415
+
+Signed-off-by: Eduardo Otubo <otubo@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ rhel/cloud.cfg | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/rhel/cloud.cfg b/rhel/cloud.cfg
+index bb6bc4d..4a73981 100644
+--- a/rhel/cloud.cfg
++++ b/rhel/cloud.cfg
+@@ -11,6 +11,7 @@ ssh_genkeytypes:  ~
+ syslog_fix_perms: ~
+ 
+ cloud_init_modules:
++ - disk_setup
+  - migrator
+  - bootcmd
+  - write-files
+-- 
+1.8.3.1
+

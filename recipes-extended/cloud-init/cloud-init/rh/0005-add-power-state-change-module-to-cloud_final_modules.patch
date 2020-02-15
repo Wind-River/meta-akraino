@@ -1,0 +1,27 @@
+From 31614be664a68968291f5fcbd8c90aac112876a4 Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Thu, 31 May 2018 19:47:44 +0200
+Subject: add power-state-change module to cloud_final_modules
+
+Resolves: rhbz#1252477
+X-downstream-only: true
+Signed-off-by: Ryan McCabe <rmccabe@redhat.com>
+---
+ rhel/cloud.cfg | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/rhel/cloud.cfg b/rhel/cloud.cfg
+index 986f241..8644872 100644
+--- a/rhel/cloud.cfg
++++ b/rhel/cloud.cfg
+@@ -48,6 +48,7 @@ cloud_final_modules:
+  - keys-to-console
+  - phone-home
+  - final-message
++ - power-state-change
+ 
+ system_info:
+   default_user:
+-- 
+1.8.3.1
+

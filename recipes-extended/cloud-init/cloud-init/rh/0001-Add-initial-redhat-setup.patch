@@ -1,0 +1,482 @@
+From d700165bae742fe63b535bd86aed9a5067fe8fbb Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Thu, 31 May 2018 16:45:23 +0200
+Subject: Add initial redhat setup
+
+---
+ cloudinit/config/cc_chef.py           |   6 +-
+ cloudinit/settings.py                 |   7 +-
+ redhat/.gitignore                     |   1 +
+ redhat/Makefile                       |  71 ++++++++
+ redhat/Makefile.common                |  35 ++++
+ redhat/cloud-init-tmpfiles.conf       |   1 +
+ redhat/cloud-init.spec.template       | 306 +++++++++++++++++++++++++++++++
+ redhat/rpmbuild/BUILD/.gitignore      |   3 +
+ redhat/rpmbuild/RPMS/.gitignore       |   3 +
+ redhat/rpmbuild/SOURCES/.gitignore    |   3 +
+ redhat/rpmbuild/SPECS/.gitignore      |   3 +
+ redhat/rpmbuild/SRPMS/.gitignore      |   3 +
+ redhat/scripts/frh.py                 |  27 +++
+ redhat/scripts/git-backport-diff      | 327 ++++++++++++++++++++++++++++++++++
+ redhat/scripts/git-compile-check      | 215 ++++++++++++++++++++++
+ redhat/scripts/process-patches.sh     |  73 ++++++++
+ redhat/scripts/tarball_checksum.sh    |   3 +
+ rhel/README.rhel                      |   5 +
+ rhel/cloud-init-tmpfiles.conf         |   1 +
+ rhel/cloud.cfg                        |  66 +++++++
+ rhel/systemd/cloud-config.service     |  18 ++
+ rhel/systemd/cloud-config.target      |  11 ++
+ rhel/systemd/cloud-final.service      |  19 ++
+ rhel/systemd/cloud-init-local.service |  31 ++++
+ rhel/systemd/cloud-init.service       |  25 +++
+ setup.py                              |  64 +------
+ tools/read-version                    |  19 +-
+ 27 files changed, 1262 insertions(+), 84 deletions(-)
+ create mode 100644 redhat/.gitignore
+ create mode 100644 redhat/Makefile
+ create mode 100644 redhat/Makefile.common
+ create mode 100644 redhat/cloud-init-tmpfiles.conf
+ create mode 100644 redhat/cloud-init.spec.template
+ create mode 100644 redhat/rpmbuild/BUILD/.gitignore
+ create mode 100644 redhat/rpmbuild/RPMS/.gitignore
+ create mode 100644 redhat/rpmbuild/SOURCES/.gitignore
+ create mode 100644 redhat/rpmbuild/SPECS/.gitignore
+ create mode 100644 redhat/rpmbuild/SRPMS/.gitignore
+ create mode 100755 redhat/scripts/frh.py
+ create mode 100755 redhat/scripts/git-backport-diff
+ create mode 100755 redhat/scripts/git-compile-check
+ create mode 100755 redhat/scripts/process-patches.sh
+ create mode 100755 redhat/scripts/tarball_checksum.sh
+ create mode 100644 rhel/README.rhel
+ create mode 100644 rhel/cloud-init-tmpfiles.conf
+ create mode 100644 rhel/cloud.cfg
+ create mode 100644 rhel/systemd/cloud-config.service
+ create mode 100644 rhel/systemd/cloud-config.target
+ create mode 100644 rhel/systemd/cloud-final.service
+ create mode 100644 rhel/systemd/cloud-init-local.service
+ create mode 100644 rhel/systemd/cloud-init.service
+
+diff --git a/cloudinit/config/cc_chef.py b/cloudinit/config/cc_chef.py
+index 46abedd..fe7bda8 100644
+--- a/cloudinit/config/cc_chef.py
++++ b/cloudinit/config/cc_chef.py
+@@ -33,7 +33,7 @@ file).
+ 
+     chef:
+        directories: (defaulting to /etc/chef, /var/log/chef, /var/lib/chef,
+-                     /var/cache/chef, /var/backups/chef, /var/run/chef)
++                     /var/cache/chef, /var/backups/chef, /run/chef)
+        validation_cert: (optional string to be written to file validation_key)
+                         special value 'system' means set use existing file
+        validation_key: (optional the path for validation_cert. default
+@@ -88,7 +88,7 @@ CHEF_DIRS = tuple([
+     '/var/lib/chef',
+     '/var/cache/chef',
+     '/var/backups/chef',
+-    '/var/run/chef',
++    '/run/chef',
+ ])
+ REQUIRED_CHEF_DIRS = tuple([
+     '/etc/chef',
+@@ -112,7 +112,7 @@ CHEF_RB_TPL_DEFAULTS = {
+     'json_attribs': CHEF_FB_PATH,
+     'file_cache_path': "/var/cache/chef",
+     'file_backup_path': "/var/backups/chef",
+-    'pid_file': "/var/run/chef/client.pid",
++    'pid_file': "/run/chef/client.pid",
+     'show_time': True,
+ }
+ CHEF_RB_TPL_BOOL_KEYS = frozenset(['show_time'])
+diff --git a/cloudinit/settings.py b/cloudinit/settings.py
+index dde5749..a5a1eec 100644
+--- a/cloudinit/settings.py
++++ b/cloudinit/settings.py
+@@ -43,13 +43,16 @@ CFG_BUILTIN = {
+     ],
+     'def_log_file': '/var/log/cloud-init.log',
+     'log_cfgs': [],
+-    'syslog_fix_perms': ['syslog:adm', 'root:adm', 'root:wheel'],
++    'mount_default_fields': [None, None, 'auto', 'defaults,nofail', '0', '2'],
++    'ssh_deletekeys': False,
++    'ssh_genkeytypes': [],
++    'syslog_fix_perms': [],
+     'system_info': {
+         'paths': {
+             'cloud_dir': '/var/lib/cloud',
+             'templates_dir': '/etc/cloud/templates/',
+         },
+-        'distro': 'ubuntu',
++        'distro': 'rhel',
+         'network': {'renderers': None},
+     },
+     'vendor_data': {'enabled': True, 'prefix': []},
+diff --git a/rhel/README.rhel b/rhel/README.rhel
+new file mode 100644
+index 0000000..aa29630
+--- /dev/null
++++ b/rhel/README.rhel
+@@ -0,0 +1,5 @@
++The following cloud-init modules are currently unsupported on this OS:
++ - apt_update_upgrade ('apt_update', 'apt_upgrade', 'apt_mirror', 'apt_preserve_sources_list', 'apt_old_mirror', 'apt_sources', 'debconf_selections', 'packages' options)
++ - byobu ('byobu_by_default' option)
++ - chef
++ - grub_dpkg
+diff --git a/rhel/cloud-init-tmpfiles.conf b/rhel/cloud-init-tmpfiles.conf
+new file mode 100644
+index 0000000..0c6d2a3
+--- /dev/null
++++ b/rhel/cloud-init-tmpfiles.conf
+@@ -0,0 +1 @@
++d /run/cloud-init 0700 root root - -
+diff --git a/rhel/cloud.cfg b/rhel/cloud.cfg
+new file mode 100644
+index 0000000..986f241
+--- /dev/null
++++ b/rhel/cloud.cfg
+@@ -0,0 +1,66 @@
++users:
++ - default
++
++disable_root: 1
++ssh_pwauth:   0
++
++mount_default_fields: [~, ~, 'auto', 'defaults,nofail', '0', '2']
++resize_rootfs_tmp: /dev
++ssh_deletekeys:   0
++ssh_genkeytypes:  ~
++syslog_fix_perms: ~
++
++cloud_init_modules:
++ - migrator
++ - bootcmd
++ - write-files
++ - growpart
++ - resizefs
++ - set_hostname
++ - update_hostname
++ - update_etc_hosts
++ - rsyslog
++ - users-groups
++ - ssh
++
++cloud_config_modules:
++ - mounts
++ - locale
++ - set-passwords
++ - rh_subscription
++ - yum-add-repo
++ - package-update-upgrade-install
++ - timezone
++ - puppet
++ - chef
++ - salt-minion
++ - mcollective
++ - disable-ec2-metadata
++ - runcmd
++
++cloud_final_modules:
++ - rightscale_userdata
++ - scripts-per-once
++ - scripts-per-boot
++ - scripts-per-instance
++ - scripts-user
++ - ssh-authkey-fingerprints
++ - keys-to-console
++ - phone-home
++ - final-message
++
++system_info:
++  default_user:
++    name: cloud-user
++    lock_passwd: true
++    gecos: Cloud User
++    groups: [wheel, adm, systemd-journal]
++    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
++    shell: /bin/bash
++  distro: rhel
++  paths:
++    cloud_dir: /var/lib/cloud
++    templates_dir: /etc/cloud/templates
++  ssh_svcname: sshd
++
++# vim:syntax=yaml
+diff --git a/rhel/systemd/cloud-config.service b/rhel/systemd/cloud-config.service
+new file mode 100644
+index 0000000..12ca9df
+--- /dev/null
++++ b/rhel/systemd/cloud-config.service
+@@ -0,0 +1,18 @@
++[Unit]
++Description=Apply the settings specified in cloud-config
++After=network-online.target cloud-config.target
++Wants=network-online.target cloud-config.target
++ConditionPathExists=!/etc/cloud/cloud-init.disabled
++ConditionKernelCommandLine=!cloud-init=disabled
++
++[Service]
++Type=oneshot
++ExecStart=/usr/bin/cloud-init modules --mode=config
++RemainAfterExit=yes
++TimeoutSec=0
++
++# Output needs to appear in instance console output
++StandardOutput=journal+console
++
++[Install]
++WantedBy=multi-user.target
+diff --git a/rhel/systemd/cloud-config.target b/rhel/systemd/cloud-config.target
+new file mode 100644
+index 0000000..ae9b7d0
+--- /dev/null
++++ b/rhel/systemd/cloud-config.target
+@@ -0,0 +1,11 @@
++# cloud-init normally emits a "cloud-config" upstart event to inform third
++# parties that cloud-config is available, which does us no good when we're
++# using systemd.  cloud-config.target serves as this synchronization point
++# instead.  Services that would "start on cloud-config" with upstart can
++# instead use "After=cloud-config.target" and "Wants=cloud-config.target"
++# as appropriate.
++
++[Unit]
++Description=Cloud-config availability
++Wants=cloud-init-local.service cloud-init.service
++After=cloud-init-local.service cloud-init.service
+diff --git a/rhel/systemd/cloud-final.service b/rhel/systemd/cloud-final.service
+new file mode 100644
+index 0000000..32a83d8
+--- /dev/null
++++ b/rhel/systemd/cloud-final.service
+@@ -0,0 +1,19 @@
++[Unit]
++Description=Execute cloud user/final scripts
++After=network-online.target cloud-config.service rc-local.service
++Wants=network-online.target cloud-config.service
++ConditionPathExists=!/etc/cloud/cloud-init.disabled
++ConditionKernelCommandLine=!cloud-init=disabled
++
++[Service]
++Type=oneshot
++ExecStart=/usr/bin/cloud-init modules --mode=final
++RemainAfterExit=yes
++TimeoutSec=0
++KillMode=process
++
++# Output needs to appear in instance console output
++StandardOutput=journal+console
++
++[Install]
++WantedBy=multi-user.target
+diff --git a/rhel/systemd/cloud-init-local.service b/rhel/systemd/cloud-init-local.service
+new file mode 100644
+index 0000000..656eddb
+--- /dev/null
++++ b/rhel/systemd/cloud-init-local.service
+@@ -0,0 +1,31 @@
++[Unit]
++Description=Initial cloud-init job (pre-networking)
++DefaultDependencies=no
++Wants=network-pre.target
++After=systemd-remount-fs.service
++Requires=dbus.socket
++After=dbus.socket
++Before=NetworkManager.service network.service
++Before=network-pre.target
++Before=shutdown.target
++Before=firewalld.target
++Conflicts=shutdown.target
++RequiresMountsFor=/var/lib/cloud
++ConditionPathExists=!/etc/cloud/cloud-init.disabled
++ConditionKernelCommandLine=!cloud-init=disabled
++
++[Service]
++Type=oneshot
++ExecStartPre=/bin/mkdir -p /run/cloud-init
++ExecStartPre=/sbin/restorecon /run/cloud-init
++ExecStartPre=/usr/bin/touch /run/cloud-init/enabled
++ExecStart=/usr/bin/cloud-init init --local
++ExecStart=/bin/touch /run/cloud-init/network-config-ready
++RemainAfterExit=yes
++TimeoutSec=0
++
++# Output needs to appear in instance console output
++StandardOutput=journal+console
++
++[Install]
++WantedBy=multi-user.target
+diff --git a/rhel/systemd/cloud-init.service b/rhel/systemd/cloud-init.service
+new file mode 100644
+index 0000000..68fc5f1
+--- /dev/null
++++ b/rhel/systemd/cloud-init.service
+@@ -0,0 +1,25 @@
++[Unit]
++Description=Initial cloud-init job (metadata service crawler)
++Wants=cloud-init-local.service
++Wants=sshd-keygen.service
++Wants=sshd.service
++After=cloud-init-local.service
++After=NetworkManager.service network.service
++Before=network-online.target
++Before=sshd-keygen.service
++Before=sshd.service
++Before=systemd-user-sessions.service
++ConditionPathExists=!/etc/cloud/cloud-init.disabled
++ConditionKernelCommandLine=!cloud-init=disabled
++
++[Service]
++Type=oneshot
++ExecStart=/usr/bin/cloud-init init
++RemainAfterExit=yes
++TimeoutSec=0
++
++# Output needs to appear in instance console output
++StandardOutput=journal+console
++
++[Install]
++WantedBy=multi-user.target
+diff --git a/setup.py b/setup.py
+index bc3f52a..47cf842 100755
+--- a/setup.py
++++ b/setup.py
+@@ -125,11 +125,6 @@ INITSYS_FILES = {
+     'sysvinit_deb': [f for f in glob('sysvinit/debian/*') if is_f(f)],
+     'sysvinit_openrc': [f for f in glob('sysvinit/gentoo/*') if is_f(f)],
+     'sysvinit_suse': [f for f in glob('sysvinit/suse/*') if is_f(f)],
+-    'systemd': [render_tmpl(f)
+-                for f in (glob('systemd/*.tmpl') +
+-                          glob('systemd/*.service') +
+-                          glob('systemd/*.target')) if is_f(f)],
+-    'systemd.generators': [f for f in glob('systemd/*-generator') if is_f(f)],
+     'upstart': [f for f in glob('upstart/*') if is_f(f)],
+ }
+ INITSYS_ROOTS = {
+@@ -138,9 +133,6 @@ INITSYS_ROOTS = {
+     'sysvinit_deb': 'etc/init.d',
+     'sysvinit_openrc': 'etc/init.d',
+     'sysvinit_suse': 'etc/init.d',
+-    'systemd': pkg_config_read('systemd', 'systemdsystemunitdir'),
+-    'systemd.generators': pkg_config_read('systemd',
+-                                          'systemdsystemgeneratordir'),
+     'upstart': 'etc/init/',
+ }
+ INITSYS_TYPES = sorted([f.partition(".")[0] for f in INITSYS_ROOTS.keys()])
+@@ -178,47 +170,6 @@ class MyEggInfo(egg_info):
+         return ret
+ 
+ 
+-# TODO: Is there a better way to do this??
+-class InitsysInstallData(install):
+-    init_system = None
+-    user_options = install.user_options + [
+-        # This will magically show up in member variable 'init_sys'
+-        ('init-system=', None,
+-         ('init system(s) to configure (%s) [default: None]' %
+-          (", ".join(INITSYS_TYPES)))),
+-    ]
+-
+-    def initialize_options(self):
+-        install.initialize_options(self)
+-        self.init_system = ""
+-
+-    def finalize_options(self):
+-        install.finalize_options(self)
+-
+-        if self.init_system and isinstance(self.init_system, str):
+-            self.init_system = self.init_system.split(",")
+-
+-        if len(self.init_system) == 0:
+-            self.init_system = ['systemd']
+-
+-        bad = [f for f in self.init_system if f not in INITSYS_TYPES]
+-        if len(bad) != 0:
+-            raise DistutilsArgError(
+-                "Invalid --init-system: %s" % (','.join(bad)))
+-
+-        for system in self.init_system:
+-            # add data files for anything that starts with '<system>.'
+-            datakeys = [k for k in INITSYS_ROOTS
+-                        if k.partition(".")[0] == system]
+-            for k in datakeys:
+-                if not INITSYS_FILES[k]:
+-                    continue
+-                self.distribution.data_files.append(
+-                    (INITSYS_ROOTS[k], INITSYS_FILES[k]))
+-        # Force that command to reinitalize (with new file list)
+-        self.distribution.reinitialize_command('install_data', True)
+-
+-
+ if not in_virtualenv():
+     USR = "/" + USR
+     ETC = "/" + ETC
+@@ -228,11 +179,9 @@ if not in_virtualenv():
+         INITSYS_ROOTS[k] = "/" + INITSYS_ROOTS[k]
+ 
+ data_files = [
+-    (ETC + '/cloud', [render_tmpl("config/cloud.cfg.tmpl")]),
+     (ETC + '/cloud/cloud.cfg.d', glob('config/cloud.cfg.d/*')),
+     (ETC + '/cloud/templates', glob('templates/*')),
+-    (USR_LIB_EXEC + '/cloud-init', ['tools/ds-identify',
+-                                    'tools/uncloud-init',
++    (USR_LIB_EXEC + '/cloud-init', ['tools/uncloud-init',
+                                     'tools/write-ssh-key-fingerprints']),
+     (USR + '/share/doc/cloud-init', [f for f in glob('doc/*') if is_f(f)]),
+     (USR + '/share/doc/cloud-init/examples',
+@@ -244,15 +193,8 @@ if os.uname()[0] != 'FreeBSD':
+     data_files.extend([
+         (ETC + '/NetworkManager/dispatcher.d/',
+          ['tools/hook-network-manager']),
+-        (ETC + '/dhcp/dhclient-exit-hooks.d/', ['tools/hook-dhclient']),
+-        (LIB + '/udev/rules.d', [f for f in glob('udev/*.rules')])
++        ('/usr/lib/udev/rules.d', [f for f in glob('udev/*.rules')])
+     ])
+-# Use a subclass for install that handles
+-# adding on the right init system configuration files
+-cmdclass = {
+-    'install': InitsysInstallData,
+-    'egg_info': MyEggInfo,
+-}
+ 
+ requirements = read_requires()
+ 
+@@ -267,8 +209,6 @@ setuptools.setup(
+     scripts=['tools/cloud-init-per'],
+     license='Dual-licensed under GPLv3 or Apache 2.0',
+     data_files=data_files,
+-    install_requires=requirements,
+-    cmdclass=cmdclass,
+     entry_points={
+         'console_scripts': [
+             'cloud-init = cloudinit.cmd.main:main'
+diff --git a/tools/read-version b/tools/read-version
+index 3ea9e66..d43cc8f 100755
+--- a/tools/read-version
++++ b/tools/read-version
+@@ -65,23 +65,8 @@ output_json = '--json' in sys.argv
+ src_version = ci_version.version_string()
+ version_long = None
+ 
+-if is_gitdir(_tdir) and which("git"):
+-    flags = []
+-    if use_tags:
+-        flags = ['--tags']
+-    cmd = ['git', 'describe', '--abbrev=8', '--match=[0-9]*'] + flags
+-
+-    version = tiny_p(cmd).strip()
+-
+-    if not version.startswith(src_version):
+-        sys.stderr.write("git describe version (%s) differs from "
+-                         "cloudinit.version (%s)\n" % (version, src_version))
+-        sys.exit(1)
+-
+-    version_long = tiny_p(cmd + ["--long"]).strip()
+-else:
+-    version = src_version
+-    version_long = None
++version = src_version
++version_long = None
+ 
+ # version is X.Y.Z[+xxx.gHASH]
+ # version_long is None or X.Y.Z-xxx-gHASH
+-- 
+1.8.3.1
+

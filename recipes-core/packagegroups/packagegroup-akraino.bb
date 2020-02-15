@@ -43,7 +43,6 @@ RDEPENDS_${PN}-base = "\
     caas-lcm \
     caas-logging \
     cloud-init \
-    cloud-init-systemd \
     infra-ansible \
     cm-plugins \
     config-encoder-macros \

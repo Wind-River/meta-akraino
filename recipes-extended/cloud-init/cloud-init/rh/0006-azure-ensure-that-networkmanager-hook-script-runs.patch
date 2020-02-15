@@ -1,0 +1,63 @@
+From 06f283cfb7c632530fdd004f96cc8ba71325ebf3 Mon Sep 17 00:00:00 2001
+From: Lars Kellogg-Stedman <lars@redhat.com>
+Date: Thu, 15 Jun 2017 12:20:39 -0400
+Subject: azure: ensure that networkmanager hook script runs
+
+The networkmanager hook script was failing to run due to the changes
+we made to resolve rhbz#1440831.  This corrects the regression by
+allowing the NM hook script to run regardless of whether or not
+cloud-init is "enabled".
+
+Resolves: rhbz#1460206
+X-downstream-only: true
+---
+ tools/hook-dhclient        | 3 +--
+ tools/hook-network-manager | 3 +--
+ tools/hook-rhel.sh         | 3 +--
+ 3 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/tools/hook-dhclient b/tools/hook-dhclient
+index 02122f3..181cd51 100755
+--- a/tools/hook-dhclient
++++ b/tools/hook-dhclient
+@@ -13,8 +13,7 @@ is_azure() {
+ }
+ 
+ is_enabled() {
+-    # only execute hooks if cloud-init is enabled and on azure
+-    [ -e /run/cloud-init/enabled ] || return 1
++    # only execute hooks if cloud-init is running on azure
+     is_azure
+ }
+ 
+diff --git a/tools/hook-network-manager b/tools/hook-network-manager
+index 67d9044..1d52cad 100755
+--- a/tools/hook-network-manager
++++ b/tools/hook-network-manager
+@@ -13,8 +13,7 @@ is_azure() {
+ }
+ 
+ is_enabled() {
+-    # only execute hooks if cloud-init is enabled and on azure
+-    [ -e /run/cloud-init/enabled ] || return 1
++    # only execute hooks if cloud-init running on azure
+     is_azure
+ }
+ 
+diff --git a/tools/hook-rhel.sh b/tools/hook-rhel.sh
+index 513a551..d75767e 100755
+--- a/tools/hook-rhel.sh
++++ b/tools/hook-rhel.sh
+@@ -13,8 +13,7 @@ is_azure() {
+ }
+ 
+ is_enabled() {
+-    # only execute hooks if cloud-init is enabled and on azure
+-    [ -e /run/cloud-init/enabled ] || return 1
++    # only execute hooks if cloud-init is running on azure
+     is_azure
+ }
+ 
+-- 
+1.8.3.1
+

@@ -1,0 +1,49 @@
+From 97b615b4d31efc7964ff99906c0c66f066de3f18 Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Thu, 31 May 2018 20:00:32 +0200
+Subject: sysconfig: Don't write BOOTPROTO=dhcp for ipv6 dhcp
+
+Don't write BOOTPROTO=dhcp for ipv6 dhcp, as BOOTPROTO applies
+only to ipv4. Explicitly write IPV6_AUTOCONF=no for dhcp on ipv6.
+
+X-downstream-only: yes
+
+Resolves: rhbz#1519271
+Signed-off-by: Ryan McCabe <rmccabe@redhat.com>
+---
+ cloudinit/net/sysconfig.py  | 2 +-
+ tests/unittests/test_net.py | 3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/cloudinit/net/sysconfig.py b/cloudinit/net/sysconfig.py
+index cefb5c5..f870b0f 100644
+--- a/cloudinit/net/sysconfig.py
++++ b/cloudinit/net/sysconfig.py
+@@ -286,7 +286,7 @@ class Renderer(renderer.Renderer):
+             if subnet_type == 'dhcp6':
+                 iface_cfg['IPV6INIT'] = True
+                 iface_cfg['DHCPV6C'] = True
+-                iface_cfg['BOOTPROTO'] = 'dhcp'
++                iface_cfg['IPV6_AUTOCONF'] = False
+             elif subnet_type in ['dhcp4', 'dhcp']:
+                 iface_cfg['BOOTPROTO'] = 'dhcp'
+             elif subnet_type == 'static':
+diff --git a/tests/unittests/test_net.py b/tests/unittests/test_net.py
+index 95318ed..9cf41bc 100644
+--- a/tests/unittests/test_net.py
++++ b/tests/unittests/test_net.py
+@@ -734,9 +734,10 @@ pre-down route del -net 10.0.0.0 netmask 255.0.0.0 gw 11.0.0.1 metric 3 || true
+                                            """miimon=100"
+                 BONDING_SLAVE0=eth1
+                 BONDING_SLAVE1=eth2
+-                BOOTPROTO=dhcp
++                BOOTPROTO=none
+                 DEVICE=bond0
+                 DHCPV6C=yes
++                IPV6_AUTOCONF=no
+                 IPV6INIT=yes
+                 MACADDR=aa:bb:cc:dd:ee:ff
+                 ONBOOT=yes
+-- 
+1.8.3.1
+

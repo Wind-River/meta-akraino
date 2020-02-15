@@ -1,0 +1,12 @@
+diff -uNrp cloud-init-18.2.orig/rhel/cloud.cfg cloud-init-18.2/rhel/cloud.cfg
+--- cloud-init-18.2.orig/rhel/cloud.cfg	2018-11-04 15:38:13.763701007 +0000
++++ cloud-init-18.2/rhel/cloud.cfg	2018-11-04 15:41:06.934576619 +0000
+@@ -52,7 +52,7 @@ cloud_final_modules:
+ 
+ system_info:
+   default_user:
+-    name: cloud-user
++    name: centos
+     lock_passwd: true
+     gecos: Cloud User
+     groups: [wheel, adm, systemd-journal]

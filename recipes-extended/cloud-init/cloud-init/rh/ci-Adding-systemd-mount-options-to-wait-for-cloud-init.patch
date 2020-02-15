@@ -1,0 +1,42 @@
+From c533a99fd7e3f78027c74a889e931604c222db0f Mon Sep 17 00:00:00 2001
+From: Eduardo Otubo <otubo@redhat.com>
+Date: Wed, 26 Sep 2018 13:57:39 +0200
+Subject: [PATCH 1/4] Adding systemd mount options to wait for cloud-init
+
+RH-Author: Eduardo Otubo <otubo@redhat.com>
+Message-id: <20180926135742.11140-2-otubo@redhat.com>
+Patchwork-id: 82297
+O-Subject: [RHEL-7.6 cloud-init PATCHv2 1/4] Adding systemd mount options to wait for cloud-init
+Bugzilla: 1560415
+RH-Acked-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+This patch adds systemd mount options to wait for cloud-init. On Azure,
+cloud-init needs to format ephemeral disk before we are able to mount
+it.
+
+X-downstream-only: yes
+Resolves: rhbz#1560415
+
+Signed-off-by: Eduardo Otubo <otubo@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ rhel/cloud.cfg | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/rhel/cloud.cfg b/rhel/cloud.cfg
+index 8644872..bb6bc4d 100644
+--- a/rhel/cloud.cfg
++++ b/rhel/cloud.cfg
+@@ -4,7 +4,7 @@ users:
+ disable_root: 1
+ ssh_pwauth:   0
+ 
+-mount_default_fields: [~, ~, 'auto', 'defaults,nofail', '0', '2']
++mount_default_fields: [~, ~, 'auto', 'defaults,nofail,x-systemd.requires=cloud-init.service', '0', '2']
+ resize_rootfs_tmp: /dev
+ ssh_deletekeys:   0
+ ssh_genkeytypes:  ~
+-- 
+1.8.3.1
+

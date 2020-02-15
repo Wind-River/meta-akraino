@@ -1,0 +1,422 @@
+From 1c985230cd8559c3fc4af33f9bff6e2c103ce5e9 Mon Sep 17 00:00:00 2001
+From: Eduardo Otubo <otubo@redhat.com>
+Date: Wed, 26 Sep 2018 13:57:40 +0200
+Subject: [PATCH 2/4] Azure: Ignore NTFS mount errors when checking ephemeral
+ drive
+
+RH-Author: Eduardo Otubo <otubo@redhat.com>
+Message-id: <20180926135742.11140-3-otubo@redhat.com>
+Patchwork-id: 82300
+O-Subject: [RHEL-7.6 cloud-init PATCHv2 2/4] Azure: Ignore NTFS mount errors when checking ephemeral drive
+Bugzilla: 1560415
+RH-Acked-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+
+commit aa4eeb80839382117e1813e396dc53aa634fd7ba
+Author: Paul Meyer <paulmey@microsoft.com>
+Date:   Wed May 23 15:45:39 2018 -0400
+
+    Azure: Ignore NTFS mount errors when checking ephemeral drive
+
+    The Azure data source provides a method to check whether a NTFS partition
+    on the ephemeral disk is safe for reformatting to ext4. The method checks
+    to see if there are customer data files on the disk. However, mounting
+    the partition fails on systems that do not have the capability of
+    mounting NTFS. Note that in this case, it is also very unlikely that the
+    NTFS partition would have been used by the system (since it can't mount
+    it). The only case would be where an update to the system removed the
+    capability to mount NTFS, the likelihood of which is also very small.
+    This change allows the reformatting of the ephemeral disk to ext4 on
+    systems where mounting NTFS is not supported.
+
+Signed-off-by: Eduardo Otubo <otubo@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ cloudinit/sources/DataSourceAzure.py          |  63 ++++++++++++----
+ cloudinit/util.py                             |   5 +-
+ tests/unittests/test_datasource/test_azure.py | 105 +++++++++++++++++++++-----
+ 3 files changed, 138 insertions(+), 35 deletions(-)
+
+diff --git a/cloudinit/sources/DataSourceAzure.py b/cloudinit/sources/DataSourceAzure.py
+index 23b4d53..7e49455 100644
+--- a/cloudinit/sources/DataSourceAzure.py
++++ b/cloudinit/sources/DataSourceAzure.py
+@@ -214,6 +214,7 @@ BUILTIN_CLOUD_CONFIG = {
+ }
+ 
+ DS_CFG_PATH = ['datasource', DS_NAME]
++DS_CFG_KEY_PRESERVE_NTFS = 'never_destroy_ntfs'
+ DEF_EPHEMERAL_LABEL = 'Temporary Storage'
+ 
+ # The redacted password fails to meet password complexity requirements
+@@ -400,14 +401,9 @@ class DataSourceAzure(sources.DataSource):
+         if found == ddir:
+             LOG.debug("using files cached in %s", ddir)
+ 
+-        # azure / hyper-v provides random data here
+-        # TODO. find the seed on FreeBSD platform
+-        # now update ds_cfg to reflect contents pass in config
+-        if not util.is_FreeBSD():
+-            seed = util.load_file("/sys/firmware/acpi/tables/OEM0",
+-                                  quiet=True, decode=False)
+-            if seed:
+-                self.metadata['random_seed'] = seed
++        seed = _get_random_seed()
++        if seed:
++            self.metadata['random_seed'] = seed
+ 
+         user_ds_cfg = util.get_cfg_by_path(self.cfg, DS_CFG_PATH, {})
+         self.ds_cfg = util.mergemanydict([user_ds_cfg, self.ds_cfg])
+@@ -537,7 +533,9 @@ class DataSourceAzure(sources.DataSource):
+         return fabric_data
+ 
+     def activate(self, cfg, is_new_instance):
+-        address_ephemeral_resize(is_new_instance=is_new_instance)
++        address_ephemeral_resize(is_new_instance=is_new_instance,
++                                 preserve_ntfs=self.ds_cfg.get(
++                                     DS_CFG_KEY_PRESERVE_NTFS, False))
+         return
+ 
+     @property
+@@ -581,17 +579,29 @@ def _has_ntfs_filesystem(devpath):
+     return os.path.realpath(devpath) in ntfs_devices
+ 
+ 
+-def can_dev_be_reformatted(devpath):
+-    """Determine if block device devpath is newly formatted ephemeral.
++def can_dev_be_reformatted(devpath, preserve_ntfs):
++    """Determine if the ephemeral drive at devpath should be reformatted.
+ 
+-    A newly formatted disk will:
++    A fresh ephemeral disk is formatted by Azure and will:
+       a.) have a partition table (dos or gpt)
+       b.) have 1 partition that is ntfs formatted, or
+           have 2 partitions with the second partition ntfs formatted.
+           (larger instances with >2TB ephemeral disk have gpt, and will
+            have a microsoft reserved partition as part 1.  LP: #1686514)
+       c.) the ntfs partition will have no files other than possibly
+-          'dataloss_warning_readme.txt'"""
++          'dataloss_warning_readme.txt'
++
++    User can indicate that NTFS should never be destroyed by setting
++    DS_CFG_KEY_PRESERVE_NTFS in dscfg.
++    If data is found on NTFS, user is warned to set DS_CFG_KEY_PRESERVE_NTFS
++    to make sure cloud-init does not accidentally wipe their data.
++    If cloud-init cannot mount the disk to check for data, destruction
++    will be allowed, unless the dscfg key is set."""
++    if preserve_ntfs:
++        msg = ('config says to never destroy NTFS (%s.%s), skipping checks' %
++               (".".join(DS_CFG_PATH), DS_CFG_KEY_PRESERVE_NTFS))
++        return False, msg
++
+     if not os.path.exists(devpath):
+         return False, 'device %s does not exist' % devpath
+ 
+@@ -624,18 +634,27 @@ def can_dev_be_reformatted(devpath):
+     bmsg = ('partition %s (%s) on device %s was ntfs formatted' %
+             (cand_part, cand_path, devpath))
+     try:
+-        file_count = util.mount_cb(cand_path, count_files)
++        file_count = util.mount_cb(cand_path, count_files, mtype="ntfs",
++                                   update_env_for_mount={'LANG': 'C'})
+     except util.MountFailedError as e:
++        if "mount: unknown filesystem type 'ntfs'" in str(e):
++            return True, (bmsg + ' but this system cannot mount NTFS,'
++                          ' assuming there are no important files.'
++                          ' Formatting allowed.')
+         return False, bmsg + ' but mount of %s failed: %s' % (cand_part, e)
+ 
+     if file_count != 0:
++        LOG.warning("it looks like you're using NTFS on the ephemeral disk, "
++                    'to ensure that filesystem does not get wiped, set '
++                    '%s.%s in config', '.'.join(DS_CFG_PATH),
++                    DS_CFG_KEY_PRESERVE_NTFS)
+         return False, bmsg + ' but had %d files on it.' % file_count
+ 
+     return True, bmsg + ' and had no important files. Safe for reformatting.'
+ 
+ 
+ def address_ephemeral_resize(devpath=RESOURCE_DISK_PATH, maxwait=120,
+-                             is_new_instance=False):
++                             is_new_instance=False, preserve_ntfs=False):
+     # wait for ephemeral disk to come up
+     naplen = .2
+     missing = util.wait_for_files([devpath], maxwait=maxwait, naplen=naplen,
+@@ -651,7 +670,7 @@ def address_ephemeral_resize(devpath=RESOURCE_DISK_PATH, maxwait=120,
+     if is_new_instance:
+         result, msg = (True, "First instance boot.")
+     else:
+-        result, msg = can_dev_be_reformatted(devpath)
++        result, msg = can_dev_be_reformatted(devpath, preserve_ntfs)
+ 
+     LOG.debug("reformattable=%s: %s", result, msg)
+     if not result:
+@@ -965,6 +984,18 @@ def _check_freebsd_cdrom(cdrom_dev):
+     return False
+ 
+ 
++def _get_random_seed():
++    """Return content random seed file if available, otherwise,
++       return None."""
++    # azure / hyper-v provides random data here
++    # TODO. find the seed on FreeBSD platform
++    # now update ds_cfg to reflect contents pass in config
++    if util.is_FreeBSD():
++        return None
++    return util.load_file("/sys/firmware/acpi/tables/OEM0",
++                          quiet=True, decode=False)
++
++
+ def list_possible_azure_ds_devs():
+     devlist = []
+     if util.is_FreeBSD():
+diff --git a/cloudinit/util.py b/cloudinit/util.py
+index 0ab2c48..c8e14ba 100644
+--- a/cloudinit/util.py
++++ b/cloudinit/util.py
+@@ -1608,7 +1608,8 @@ def mounts():
+     return mounted
+ 
+ 
+-def mount_cb(device, callback, data=None, rw=False, mtype=None, sync=True):
++def mount_cb(device, callback, data=None, rw=False, mtype=None, sync=True,
++             update_env_for_mount=None):
+     """
+     Mount the device, call method 'callback' passing the directory
+     in which it was mounted, then unmount.  Return whatever 'callback'
+@@ -1670,7 +1671,7 @@ def mount_cb(device, callback, data=None, rw=False, mtype=None, sync=True):
+                         mountcmd.extend(['-t', mtype])
+                     mountcmd.append(device)
+                     mountcmd.append(tmpd)
+-                    subp(mountcmd)
++                    subp(mountcmd, update_env=update_env_for_mount)
+                     umount = tmpd  # This forces it to be unmounted (when set)
+                     mountpoint = tmpd
+                     break
+diff --git a/tests/unittests/test_datasource/test_azure.py b/tests/unittests/test_datasource/test_azure.py
+index 3e8b791..af2c93a 100644
+--- a/tests/unittests/test_datasource/test_azure.py
++++ b/tests/unittests/test_datasource/test_azure.py
+@@ -1,10 +1,10 @@
+ # This file is part of cloud-init. See LICENSE file for license information.
+ 
+ from cloudinit import helpers
+-from cloudinit.util import b64e, decode_binary, load_file, write_file
+ from cloudinit.sources import DataSourceAzure as dsaz
+-from cloudinit.util import find_freebsd_part
+-from cloudinit.util import get_path_dev_freebsd
++from cloudinit.util import (b64e, decode_binary, load_file, write_file,
++                            find_freebsd_part, get_path_dev_freebsd,
++                            MountFailedError)
+ from cloudinit.version import version_string as vs
+ from cloudinit.tests.helpers import (CiTestCase, TestCase, populate_dir, mock,
+                                      ExitStack, PY26, SkipTest)
+@@ -95,6 +95,8 @@ class TestAzureDataSource(CiTestCase):
+         self.patches = ExitStack()
+         self.addCleanup(self.patches.close)
+ 
++        self.patches.enter_context(mock.patch.object(dsaz, '_get_random_seed'))
++
+         super(TestAzureDataSource, self).setUp()
+ 
+     def apply_patches(self, patches):
+@@ -335,6 +337,18 @@ fdescfs            /dev/fd          fdescfs rw              0 0
+         self.assertTrue(ret)
+         self.assertEqual(data['agent_invoked'], '_COMMAND')
+ 
++    def test_sys_cfg_set_never_destroy_ntfs(self):
++        sys_cfg = {'datasource': {'Azure': {
++            'never_destroy_ntfs': 'user-supplied-value'}}}
++        data = {'ovfcontent': construct_valid_ovf_env(data={}),
++                'sys_cfg': sys_cfg}
++
++        dsrc = self._get_ds(data)
++        ret = self._get_and_setup(dsrc)
++        self.assertTrue(ret)
++        self.assertEqual(dsrc.ds_cfg.get(dsaz.DS_CFG_KEY_PRESERVE_NTFS),
++                         'user-supplied-value')
++
+     def test_username_used(self):
+         odata = {'HostName': "myhost", 'UserName': "myuser"}
+         data = {'ovfcontent': construct_valid_ovf_env(data=odata)}
+@@ -676,6 +690,8 @@ class TestAzureBounce(CiTestCase):
+                               mock.MagicMock(return_value={})))
+         self.patches.enter_context(
+             mock.patch.object(dsaz.util, 'which', lambda x: True))
++        self.patches.enter_context(
++            mock.patch.object(dsaz, '_get_random_seed'))
+ 
+         def _dmi_mocks(key):
+             if key == 'system-uuid':
+@@ -957,7 +973,9 @@ class TestCanDevBeReformatted(CiTestCase):
+             # return sorted by partition number
+             return sorted(ret, key=lambda d: d[0])
+ 
+-        def mount_cb(device, callback):
++        def mount_cb(device, callback, mtype, update_env_for_mount):
++            self.assertEqual('ntfs', mtype)
++            self.assertEqual('C', update_env_for_mount.get('LANG'))
+             p = self.tmp_dir()
+             for f in bypath.get(device).get('files', []):
+                 write_file(os.path.join(p, f), content=f)
+@@ -988,14 +1006,16 @@ class TestCanDevBeReformatted(CiTestCase):
+                     '/dev/sda2': {'num': 2},
+                     '/dev/sda3': {'num': 3},
+                 }}})
+-        value, msg = dsaz.can_dev_be_reformatted("/dev/sda")
++        value, msg = dsaz.can_dev_be_reformatted("/dev/sda",
++                                                 preserve_ntfs=False)
+         self.assertFalse(value)
+         self.assertIn("3 or more", msg.lower())
+ 
+     def test_no_partitions_is_false(self):
+         """A disk with no partitions can not be formatted."""
+         self.patchup({'/dev/sda': {}})
+-        value, msg = dsaz.can_dev_be_reformatted("/dev/sda")
++        value, msg = dsaz.can_dev_be_reformatted("/dev/sda",
++                                                 preserve_ntfs=False)
+         self.assertFalse(value)
+         self.assertIn("not partitioned", msg.lower())
+ 
+@@ -1007,7 +1027,8 @@ class TestCanDevBeReformatted(CiTestCase):
+                     '/dev/sda1': {'num': 1},
+                     '/dev/sda2': {'num': 2, 'fs': 'ext4', 'files': []},
+                 }}})
+-        value, msg = dsaz.can_dev_be_reformatted("/dev/sda")
++        value, msg = dsaz.can_dev_be_reformatted("/dev/sda",
++                                                 preserve_ntfs=False)
+         self.assertFalse(value)
+         self.assertIn("not ntfs", msg.lower())
+ 
+@@ -1020,7 +1041,8 @@ class TestCanDevBeReformatted(CiTestCase):
+                     '/dev/sda2': {'num': 2, 'fs': 'ntfs',
+                                   'files': ['secret.txt']},
+                 }}})
+-        value, msg = dsaz.can_dev_be_reformatted("/dev/sda")
++        value, msg = dsaz.can_dev_be_reformatted("/dev/sda",
++                                                 preserve_ntfs=False)
+         self.assertFalse(value)
+         self.assertIn("files on it", msg.lower())
+ 
+@@ -1032,7 +1054,8 @@ class TestCanDevBeReformatted(CiTestCase):
+                     '/dev/sda1': {'num': 1},
+                     '/dev/sda2': {'num': 2, 'fs': 'ntfs', 'files': []},
+                 }}})
+-        value, msg = dsaz.can_dev_be_reformatted("/dev/sda")
++        value, msg = dsaz.can_dev_be_reformatted("/dev/sda",
++                                                 preserve_ntfs=False)
+         self.assertTrue(value)
+         self.assertIn("safe for", msg.lower())
+ 
+@@ -1043,7 +1066,8 @@ class TestCanDevBeReformatted(CiTestCase):
+                 'partitions': {
+                     '/dev/sda1': {'num': 1, 'fs': 'zfs'},
+                 }}})
+-        value, msg = dsaz.can_dev_be_reformatted("/dev/sda")
++        value, msg = dsaz.can_dev_be_reformatted("/dev/sda",
++                                                 preserve_ntfs=False)
+         self.assertFalse(value)
+         self.assertIn("not ntfs", msg.lower())
+ 
+@@ -1055,9 +1079,14 @@ class TestCanDevBeReformatted(CiTestCase):
+                     '/dev/sda1': {'num': 1, 'fs': 'ntfs',
+                                   'files': ['file1.txt', 'file2.exe']},
+                 }}})
+-        value, msg = dsaz.can_dev_be_reformatted("/dev/sda")
+-        self.assertFalse(value)
+-        self.assertIn("files on it", msg.lower())
++        with mock.patch.object(dsaz.LOG, 'warning') as warning:
++            value, msg = dsaz.can_dev_be_reformatted("/dev/sda",
++                                                     preserve_ntfs=False)
++            wmsg = warning.call_args[0][0]
++            self.assertIn("looks like you're using NTFS on the ephemeral disk",
++                          wmsg)
++            self.assertFalse(value)
++            self.assertIn("files on it", msg.lower())
+ 
+     def test_one_partition_ntfs_empty_is_true(self):
+         """1 mountable ntfs partition and no files can be formatted."""
+@@ -1066,7 +1095,8 @@ class TestCanDevBeReformatted(CiTestCase):
+                 'partitions': {
+                     '/dev/sda1': {'num': 1, 'fs': 'ntfs', 'files': []}
+                 }}})
+-        value, msg = dsaz.can_dev_be_reformatted("/dev/sda")
++        value, msg = dsaz.can_dev_be_reformatted("/dev/sda",
++                                                 preserve_ntfs=False)
+         self.assertTrue(value)
+         self.assertIn("safe for", msg.lower())
+ 
+@@ -1078,7 +1108,8 @@ class TestCanDevBeReformatted(CiTestCase):
+                     '/dev/sda1': {'num': 1, 'fs': 'ntfs',
+                                   'files': ['dataloss_warning_readme.txt']}
+                 }}})
+-        value, msg = dsaz.can_dev_be_reformatted("/dev/sda")
++        value, msg = dsaz.can_dev_be_reformatted("/dev/sda",
++                                                 preserve_ntfs=False)
+         self.assertTrue(value)
+         self.assertIn("safe for", msg.lower())
+ 
+@@ -1093,7 +1124,8 @@ class TestCanDevBeReformatted(CiTestCase):
+                         'num': 1, 'fs': 'ntfs', 'files': [self.warning_file],
+                         'realpath': '/dev/sdb1'}
+                 }}})
+-        value, msg = dsaz.can_dev_be_reformatted(epath)
++        value, msg = dsaz.can_dev_be_reformatted(epath,
++                                                 preserve_ntfs=False)
+         self.assertTrue(value)
+         self.assertIn("safe for", msg.lower())
+ 
+@@ -1112,10 +1144,49 @@ class TestCanDevBeReformatted(CiTestCase):
+                     epath + '-part3': {'num': 3, 'fs': 'ext',
+                                        'realpath': '/dev/sdb3'}
+                 }}})
+-        value, msg = dsaz.can_dev_be_reformatted(epath)
++        value, msg = dsaz.can_dev_be_reformatted(epath,
++                                                 preserve_ntfs=False)
+         self.assertFalse(value)
+         self.assertIn("3 or more", msg.lower())
+ 
++    def test_ntfs_mount_errors_true(self):
++        """can_dev_be_reformatted does not fail if NTFS is unknown fstype."""
++        self.patchup({
++            '/dev/sda': {
++                'partitions': {
++                    '/dev/sda1': {'num': 1, 'fs': 'ntfs', 'files': []}
++                }}})
++
++        err = ("Unexpected error while running command.\n",
++               "Command: ['mount', '-o', 'ro,sync', '-t', 'auto', ",
++               "'/dev/sda1', '/fake-tmp/dir']\n"
++               "Exit code: 32\n"
++               "Reason: -\n"
++               "Stdout: -\n"
++               "Stderr: mount: unknown filesystem type 'ntfs'")
++        self.m_mount_cb.side_effect = MountFailedError(
++            'Failed mounting %s to %s due to: %s' %
++            ('/dev/sda', '/fake-tmp/dir', err))
++
++        value, msg = dsaz.can_dev_be_reformatted('/dev/sda',
++                                                 preserve_ntfs=False)
++        self.assertTrue(value)
++        self.assertIn('cannot mount NTFS, assuming', msg)
++
++    def test_never_destroy_ntfs_config_false(self):
++        """Normally formattable situation with never_destroy_ntfs set."""
++        self.patchup({
++            '/dev/sda': {
++                'partitions': {
++                    '/dev/sda1': {'num': 1, 'fs': 'ntfs',
++                                  'files': ['dataloss_warning_readme.txt']}
++                }}})
++        value, msg = dsaz.can_dev_be_reformatted("/dev/sda",
++                                                 preserve_ntfs=True)
++        self.assertFalse(value)
++        self.assertIn("config says to never destroy NTFS "
++                      "(datasource.Azure.never_destroy_ntfs)", msg)
++
+ 
+ class TestAzureNetExists(CiTestCase):
+ 
+-- 
+1.8.3.1
+
