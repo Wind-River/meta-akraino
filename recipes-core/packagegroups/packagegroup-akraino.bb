@@ -37,24 +37,25 @@ RDEPENDS_${PN} = "\
 RDEPENDS_${PN}-base = "\
     access-management \
     ansible-role-ntp \
-    ceph-ansible \
-    caas-security \
     caas-install \
     caas-lcm \
     caas-logging \
+    caas-security \
+    ceph-ansible \
     cloud-init \
-    infra-ansible \
     cm-plugins \
     config-encoder-macros \
     config-manager \
     distributed-state-server \
+    e2fsprogs-resize2fs \
     galera \
     grub \
     hostcli \
     hw-detector \
-    image-provision \
-    init-ifupdown \
     ifupdown \
+    image-provision \
+    infra-ansible \
+    init-ifupdown \
     ipa-deployer \
     keystone \
     keystone-setup \
@@ -62,9 +63,9 @@ RDEPENDS_${PN}-base = "\
     monitoring \
     nginx \
     ntp \
-    ntpdate \
-    ntp-utils \
     ntp-tickadj \
+    ntp-utils \
+    ntpdate \
     openstack-ansible \
     openstack-ansible-galera-client \
     openstack-ansible-galera-server \
@@ -88,9 +89,11 @@ RDEPENDS_${PN}-base = "\
     python-shade \
     python-virtualbmc \
     python-yarf \
-    storage \
     start-menu \
+    storage \
     uwsgi \
+    xfsprogs \
+    xfsprogs-mkfs \
 "
 
 RDEPENDS_${PN}-docker = "\
