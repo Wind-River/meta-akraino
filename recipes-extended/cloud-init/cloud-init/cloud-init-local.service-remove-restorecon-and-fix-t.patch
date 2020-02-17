@@ -1,0 +1,27 @@
+From 579dd70f7ff20d0588af98a254d83f9904f561bd Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Mon, 17 Feb 2020 18:57:19 +0800
+Subject: [PATCH] cloud-init-local.service: remove restorecon and fix the path
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ rhel/systemd/cloud-init-local.service | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/rhel/systemd/cloud-init-local.service b/rhel/systemd/cloud-init-local.service
+index 656eddb..a521590 100644
+--- a/rhel/systemd/cloud-init-local.service
++++ b/rhel/systemd/cloud-init-local.service
+@@ -17,8 +17,7 @@ ConditionKernelCommandLine=!cloud-init=disabled
+ [Service]
+ Type=oneshot
+ ExecStartPre=/bin/mkdir -p /run/cloud-init
+-ExecStartPre=/sbin/restorecon /run/cloud-init
+-ExecStartPre=/usr/bin/touch /run/cloud-init/enabled
++ExecStartPre=/bin/touch /run/cloud-init/enabled
+ ExecStart=/usr/bin/cloud-init init --local
+ ExecStart=/bin/touch /run/cloud-init/network-config-ready
+ RemainAfterExit=yes
+-- 
+2.7.4
+

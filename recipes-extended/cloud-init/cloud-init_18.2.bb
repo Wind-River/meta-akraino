@@ -46,6 +46,7 @@ SRC_URI = " \
     file://rh/cloud-init-17.1-no-override-default-network.patch \
     \
     file://distros-rhel.py-changes-for-wrl.patch \
+    file://cloud-init-local.service-remove-restorecon-and-fix-t.patch \
 "
 
 SRC_URI[md5sum] = "1fa81054101f3432340026fc210d4917"
