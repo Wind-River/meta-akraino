@@ -21,3 +21,8 @@ do_install_append () {
 }
 
 FILES_${PN} += "${sysconfdir}/locale.conf"
+
+pkg_postinst_${PN}_append() {
+	# use the same net naming scheme as in CentOS
+	rm -f $D${sysconfdir}/udev/rules.d/80-net-setup-link.rules
+}
