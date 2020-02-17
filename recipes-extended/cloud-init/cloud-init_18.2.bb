@@ -44,6 +44,8 @@ SRC_URI = " \
     file://rh/ci-Adding-disk_setup-to-rhel-cloud.cfg.patch \
     file://rh/cloud-init-centos-user.patch  \
     file://rh/cloud-init-17.1-no-override-default-network.patch \
+    \
+    file://distros-rhel.py-changes-for-wrl.patch \
 "
 
 SRC_URI[md5sum] = "1fa81054101f3432340026fc210d4917"
