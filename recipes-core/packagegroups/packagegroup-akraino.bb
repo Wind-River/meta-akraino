@@ -94,6 +94,7 @@ RDEPENDS_${PN}-base = "\
     uwsgi \
     xfsprogs \
     xfsprogs-mkfs \
+    yarf \
 "
 
 RDEPENDS_${PN}-docker = "\
