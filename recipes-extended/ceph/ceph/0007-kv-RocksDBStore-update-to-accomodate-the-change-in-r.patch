@@ -1,0 +1,52 @@
+From 9d73a7121fdb1ae87cb1aa6f7d9d7a13f329ae68 Mon Sep 17 00:00:00 2001
+From: Kefu Chai <kchai@redhat.com>
+Date: Thu, 31 Aug 2017 13:02:08 +0800
+Subject: [PATCH] kv/RocksDBStore: update to accomodate the change in rocksdb
+ 5.6.0
+
+per rocksdb's HISTORY.md, it
+
+> replace global variable `PerfContext perf_context` with `PerfContext*
+> get_perf_context()`.
+
+hence the change.
+
+Signed-off-by: Kefu Chai <kchai@redhat.com>
+---
+ src/kv/RocksDBStore.cc | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/src/kv/RocksDBStore.cc b/src/kv/RocksDBStore.cc
+index 8660afe188..bc0de79e23 100644
+--- a/src/kv/RocksDBStore.cc
++++ b/src/kv/RocksDBStore.cc
+@@ -504,7 +504,7 @@ int RocksDBStore::submit_common(rocksdb::WriteOptions& woptions, KeyValueDB::Tra
+   // considering performance overhead, default is disabled
+   if (g_conf->rocksdb_perf) {
+     rocksdb::SetPerfLevel(rocksdb::PerfLevel::kEnableTimeExceptForMutex);
+-    rocksdb::perf_context.Reset();
++    rocksdb::get_perf_context()->Reset();
+   }
+ 
+   RocksDBTransactionImpl * _t =
+@@ -529,13 +529,13 @@ int RocksDBStore::submit_common(rocksdb::WriteOptions& woptions, KeyValueDB::Tra
+     utime_t write_wal_time;
+     utime_t write_pre_and_post_process_time;
+     write_wal_time.set_from_double(
+-	static_cast<double>(rocksdb::perf_context.write_wal_time)/1000000000);
++	static_cast<double>(rocksdb::get_perf_context()->write_wal_time)/1000000000);
+     write_memtable_time.set_from_double(
+-	static_cast<double>(rocksdb::perf_context.write_memtable_time)/1000000000);
++	static_cast<double>(rocksdb::get_perf_context()->write_memtable_time)/1000000000);
+     write_delay_time.set_from_double(
+-	static_cast<double>(rocksdb::perf_context.write_delay_time)/1000000000);
++	static_cast<double>(rocksdb::get_perf_context()->write_delay_time)/1000000000);
+     write_pre_and_post_process_time.set_from_double(
+-	static_cast<double>(rocksdb::perf_context.write_pre_and_post_process_time)/1000000000);
++	static_cast<double>(rocksdb::get_perf_context()->write_pre_and_post_process_time)/1000000000);
+     logger->tinc(l_rocksdb_write_memtable_time, write_memtable_time);
+     logger->tinc(l_rocksdb_write_delay_time, write_delay_time);
+     logger->tinc(l_rocksdb_write_wal_time, write_wal_time);
+-- 
+2.17.1
+

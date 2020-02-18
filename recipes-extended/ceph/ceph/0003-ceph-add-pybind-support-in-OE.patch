@@ -1,6 +1,6 @@
-From 00d44940c2e83bf73101a05d2aa8f88c2e2fca58 Mon Sep 17 00:00:00 2001
-From: Dengke Du <dengke.du@windriver.com>
-Date: Tue, 23 Oct 2018 15:34:53 +0800
+From 723d9df17271bc33f1319a4369d5f1742b4a4abc Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Tue, 18 Feb 2020 16:01:50 +0800
 Subject: [PATCH] ceph: add pybind support in OE
 
 1. add sysroot to CFLAGS when cross compiling pybind
@@ -10,6 +10,10 @@ Subject: [PATCH] ceph: add pybind support in OE
 
 Signed-off-by: Dengke Du <dengke.du@windriver.com>
 Upstream-Status: Inappropriate [oe specific]
+
+rebase for 12.2.11
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
 ---
  cmake/modules/Distutils.cmake | 12 +++---------
  src/pybind/cephfs/setup.py    |  8 --------
@@ -19,7 +23,7 @@ Upstream-Status: Inappropriate [oe specific]
  5 files changed, 3 insertions(+), 41 deletions(-)
 
 diff --git a/cmake/modules/Distutils.cmake b/cmake/modules/Distutils.cmake
-index d6e9f38..3091d97 100644
+index 24d1a50..c5c2a8b 100644
 --- a/cmake/modules/Distutils.cmake
 +++ b/cmake/modules/Distutils.cmake
 @@ -47,7 +47,7 @@ function(distutils_add_cython_module name src)
@@ -31,9 +35,9 @@ index d6e9f38..3091d97 100644
      ${PYTHON${PYTHON_VERSION}_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/setup.py
      build --verbose --build-base ${CYTHON_MODULE_DIR}
      --build-platlib ${CYTHON_MODULE_DIR}/lib.${PYTHON${PYTHON_VERSION}_VERSION_MAJOR}
-@@ -69,14 +69,8 @@ function(distutils_install_cython_module name)
-     set(ENV{CEPH_LIBDIR} \"${CMAKE_LIBRARY_OUTPUT_DIRECTORY}\")
- 
+@@ -58,14 +58,8 @@ endfunction(distutils_add_cython_module)
+ function(distutils_install_cython_module name)
+   install(CODE "
      set(options --prefix=${CMAKE_INSTALL_PREFIX})
 -    if(DEFINED ENV{DESTDIR})
 -      if(EXISTS /etc/debian_version)
@@ -46,8 +50,8 @@ index d6e9f38..3091d97 100644
 +    list(APPEND options --root=${CMAKE_DESTDIR})
 +    list(APPEND options --install-lib=${PYTHON_SITEPACKAGES_DIR})
      execute_process(
-        COMMAND
-            ${PYTHON${PYTHON_VERSION}_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/setup.py
+        COMMAND env
+            CYTHON_BUILD_DIR=${CMAKE_CURRENT_BINARY_DIR}
 diff --git a/src/pybind/cephfs/setup.py b/src/pybind/cephfs/setup.py
 index 6533f41..1ee4a59 100755
 --- a/src/pybind/cephfs/setup.py
@@ -68,10 +72,10 @@ index 6533f41..1ee4a59 100755
  try:
      from Cython.Build import cythonize
 diff --git a/src/pybind/rados/setup.py b/src/pybind/rados/setup.py
-index ef7c307..5204017 100755
+index c30318d..30bbe69 100755
 --- a/src/pybind/rados/setup.py
 +++ b/src/pybind/rados/setup.py
-@@ -117,14 +117,6 @@ def check_sanity():
+@@ -130,14 +130,6 @@ def check_sanity():
      finally:
          shutil.rmtree(tmp_dir)
  

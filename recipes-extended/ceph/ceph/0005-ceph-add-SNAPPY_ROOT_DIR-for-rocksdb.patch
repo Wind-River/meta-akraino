@@ -1,0 +1,26 @@
+From d259173aaaa4add006e59aa23fd733c6061e9cc5 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Tue, 18 Feb 2020 16:54:00 +0800
+Subject: [PATCH] CMakeLists.txt: add SNAPPY_ROOT_DIR for rocksdb
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ src/CMakeLists.txt | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index b0837ab..d39d646 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -836,6 +836,8 @@ if (NOT WITH_SYSTEM_ROCKSDB)
+   endif(WITH_CCACHE AND CCACHE_FOUND)
+ 
+   list(APPEND ROCKSDB_CMAKE_ARGS -DWITH_SNAPPY=${SNAPPY_FOUND})
++  list(APPEND ROCKSDB_CMAKE_ARGS -DSNAPPY_ROOT_DIR=${SNAPPY_ROOT_DIR})
++
+   list(APPEND ROCKSDB_CMAKE_ARGS -DWITH_LZ4=${LZ4_FOUND})
+   list(APPEND ROCKSDB_CMAKE_ARGS -DWITH_ZLIB=${ZLIB_FOUND})
+ 
+-- 
+2.7.4
+

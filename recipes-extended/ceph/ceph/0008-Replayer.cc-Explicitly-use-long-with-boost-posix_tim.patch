@@ -1,0 +1,26 @@
+From b53cbc87e96917e5c5f49e8015bbdf0276ce20d8 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Tue, 18 Feb 2020 15:04:54 +0000
+Subject: [PATCH] Replayer.cc: Explicitly use long with boost::posix_time
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ src/rbd_replay/Replayer.cc | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/rbd_replay/Replayer.cc b/src/rbd_replay/Replayer.cc
+index ca1eaba8..3a9e51cd 100644
+--- a/src/rbd_replay/Replayer.cc
++++ b/src/rbd_replay/Replayer.cc
+@@ -350,7 +350,7 @@ void Replayer::wait_for_actions(const action::Dependencies &deps) {
+     dout(DEPGRAPH_LEVEL) << "Finished waiting for " << dep.id << " after " << micros << " microseconds" << dendl;
+     // Apparently the nanoseconds constructor is optional:
+     // http://www.boost.org/doc/libs/1_46_0/doc/html/date_time/details.html#compile_options
+-    boost::system_time sub_release_time(action_completed_time + boost::posix_time::microseconds(dep.time_delta * m_latency_multiplier / 1000));
++    boost::system_time sub_release_time(action_completed_time + boost::posix_time::microseconds(long(dep.time_delta * m_latency_multiplier / 1000)));
+     if (sub_release_time > release_time) {
+       release_time = sub_release_time;
+     }
+-- 
+2.17.1
+
