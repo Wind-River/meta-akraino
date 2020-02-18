@@ -50,7 +50,8 @@ RDEPENDS_${PN} += " \
         python-virtualenv \
         "
 
-FILES_${PN} += "/opt/openstack-ansible/* /usr/local/bin/*" 
+FILES_${PN} += "/opt/openstack-ansible/* /usr/local/bin/* /etc/required-secrets/*" 
+
 do_install_append() {
 
         install -d  ${D}/opt/openstack-ansible
@@ -69,6 +70,8 @@ do_install_append() {
         mkdir -p ${D}${provisioning_path}
         mkdir -p ${D}${postconfig_path}
 
+        mkdir -p ${D}${sysconfdir}/required-secrets
+	cp -f ${S}/etc/openstack_deploy/user_secrets.yml ${D}${sysconfdir}/required-secrets/000-user_secrets.yml
 }
 
 pkg_postinst_ontarget_${PN}() {
@@ -89,8 +92,4 @@ pkg_postinst_ontarget_${PN}() {
         ln -s /opt/openstack-ansible/playbooks/hosts_config.yml ${postconfig_path}
         ln -s /opt/openstack-ansible/playbooks/os-ironic-install.yml ${postconfig_path}
         ln -s /opt/openstack-ansible/playbooks/os-keystone-install.yml ${postconfig_path}
-        
-        mkdir -p ${sysconfdir}/required-secrets
-        cp -f /opt/openstack-ansible/etc/openstack_deploy/user_secrets.yml ${sysconfdir}/required-secrets/000-user_secrets.yml
-
 }
