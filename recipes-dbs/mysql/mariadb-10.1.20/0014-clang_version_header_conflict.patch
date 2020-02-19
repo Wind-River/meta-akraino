@@ -1,0 +1,58 @@
+From ea577dc682b62d0d35ee83ccffd946b7d605c2c1 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Wed, 19 Feb 2020 14:52:13 +0800
+Subject: [PATCH] clang_version_header_conflict
+
+libc++ also has a file called version and this file and how cflags are
+specified
+it ends up including this file and resulting in compile errors
+
+fixes errors like
+storage/mroonga/version:1:1: error: expected unqualified-id
+7.07
+^
+
+Upstream-Status: Pending
+Signed-off-by: Khem Raj <raj.khem@gmail.com>
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ storage/mroonga/CMakeLists.txt | 2 +-
+ storage/mroonga/ver            | 1 +
+ storage/mroonga/version        | 1 -
+ 3 files changed, 2 insertions(+), 2 deletions(-)
+ create mode 100644 storage/mroonga/ver
+ delete mode 100644 storage/mroonga/version
+
+diff --git a/storage/mroonga/CMakeLists.txt b/storage/mroonga/CMakeLists.txt
+index 5c70e14..bce5938 100644
+--- a/storage/mroonga/CMakeLists.txt
++++ b/storage/mroonga/CMakeLists.txt
+@@ -72,7 +72,7 @@ else()
+   set(MRN_SOURCE_DIR ${CMAKE_SOURCE_DIR})
+ endif()
+ 
+-file(READ ${MRN_SOURCE_DIR}/version        MRN_VERSION)
++file(READ ${MRN_SOURCE_DIR}/ver            MRN_VERSION)
+ file(READ ${MRN_SOURCE_DIR}/version_major  MRN_VERSION_MAJOR)
+ file(READ ${MRN_SOURCE_DIR}/version_minor  MRN_VERSION_MINOR)
+ file(READ ${MRN_SOURCE_DIR}/version_micro  MRN_VERSION_MICRO)
+diff --git a/storage/mroonga/ver b/storage/mroonga/ver
+new file mode 100644
+index 0000000..5b1f568
+--- /dev/null
++++ b/storage/mroonga/ver
+@@ -0,0 +1 @@
++7.07
+\ No newline at end of file
+diff --git a/storage/mroonga/version b/storage/mroonga/version
+deleted file mode 100644
+index c22ec44..0000000
+--- a/storage/mroonga/version
++++ /dev/null
+@@ -1 +0,0 @@
+-5.04
+\ No newline at end of file
+-- 
+2.7.4
+

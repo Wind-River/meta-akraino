@@ -60,6 +60,7 @@ RDEPENDS_${PN}-base = "\
     keystone \
     keystone-setup \
     lockcli \
+    mariadb-leftovers \
     monitoring \
     nginx \
     ntp \

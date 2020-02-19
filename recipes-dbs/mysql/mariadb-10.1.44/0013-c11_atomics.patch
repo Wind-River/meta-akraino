@@ -1,0 +1,92 @@
+From c967e68896dcee51c90753cc13c2e9f3b288fec6 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Wed, 19 Feb 2020 14:45:33 +0800
+Subject: [PATCH] Link with libatomic to enable C11 atomics support
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Author: Vicențiu Ciorbaru <vicentiu@mariadb.org>
+Date:   Fri Dec 21 19:14:04 2018 +0200
+
+   Link with libatomic to enable C11 atomics support
+
+   Some architectures (mips) require libatomic to support proper
+   atomic operations. Check first if support is available without
+   linking, otherwise use the library.
+
+Upstream-Status: Pending
+Signed-off-by: Khem Raj <raj.khem@gmail.com>
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ configure.cmake      | 21 ++++++++++++++++++++-
+ mysys/CMakeLists.txt |  4 ++++
+ sql/CMakeLists.txt   |  4 ++++
+ 3 files changed, 28 insertions(+), 1 deletion(-)
+
+diff --git a/configure.cmake b/configure.cmake
+index 726817c..40922a8 100644
+--- a/configure.cmake
++++ b/configure.cmake
+@@ -1028,7 +1028,26 @@ ELSEIF(NOT WITH_ATOMIC_OPS)
+     long long int *ptr= &var;
+     return (int)__atomic_load_n(ptr, __ATOMIC_SEQ_CST);
+   }"
+-  HAVE_GCC_C11_ATOMICS)
++  HAVE_GCC_C11_ATOMICS_WITHOUT_LIBATOMIC)
++  IF (HAVE_GCC_C11_ATOMICS_WITHOUT_LIBATOMIC)
++    SET(HAVE_GCC_C11_ATOMICS True)
++  ELSE()
++    SET(OLD_CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES})
++    LIST(APPEND CMAKE_REQUIRED_LIBRARIES "atomic")
++    CHECK_CXX_SOURCE_COMPILES("
++    int main()
++    {
++      long long int var= 1;
++      long long int *ptr= &var;
++      return (int)__atomic_load_n(ptr, __ATOMIC_SEQ_CST);
++    }"
++    HAVE_GCC_C11_ATOMICS_WITH_LIBATOMIC)
++    IF(HAVE_GCC_C11_ATOMICS_WITH_LIBATOMIC)
++      SET(HAVE_GCC_C11_ATOMICS True)
++    ENDIF()
++    SET(CMAKE_REQUIRED_LIBRARIES ${OLD_CMAKE_REQUIRED_LIBRARIES})
++  ENDIF()
++
+ ELSE()
+   MESSAGE(FATAL_ERROR "${WITH_ATOMIC_OPS} is not a valid value for WITH_ATOMIC_OPS!")
+ ENDIF()
+diff --git a/mysys/CMakeLists.txt b/mysys/CMakeLists.txt
+index 0d40458..10119b6 100644
+--- a/mysys/CMakeLists.txt
++++ b/mysys/CMakeLists.txt
+@@ -74,6 +74,10 @@ TARGET_LINK_LIBRARIES(mysys dbug strings mysys_ssl ${ZLIB_LIBRARY}
+  ${LIBNSL} ${LIBM} ${LIBRT} ${LIBDL} ${LIBSOCKET} ${LIBEXECINFO})
+ DTRACE_INSTRUMENT(mysys)
+ 
++IF (HAVE_GCC_C11_ATOMICS_WITH_LIBATOMIC)
++  TARGET_LINK_LIBRARIES(mysys atomic)
++ENDIF()
++
+ IF(HAVE_BFD_H)
+   TARGET_LINK_LIBRARIES(mysys bfd)  
+ ENDIF(HAVE_BFD_H)
+diff --git a/sql/CMakeLists.txt b/sql/CMakeLists.txt
+index a45317d..a30d8bb 100644
+--- a/sql/CMakeLists.txt
++++ b/sql/CMakeLists.txt
+@@ -14,6 +14,10 @@
+ # along with this program; if not, write to the Free Software
+ # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+ 
++IF (HAVE_GCC_C11_ATOMICS_WITH_LIBATOMIC)
++  TARGET_LINK_LIBRARIES(sql atomic)
++ENDIF()
++
+ 
+ IF(WITH_WSREP AND NOT EMBEDDED_LIBRARY)
+   SET(WSREP_INCLUDES ${CMAKE_SOURCE_DIR}/wsrep)
+-- 
+2.7.4
+

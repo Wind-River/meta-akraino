@@ -33,12 +33,10 @@ SRC_URI = " \
     file://0011-configure.cmake-fix-valgrind.patch \
     file://0012-sql-CMakeLists.txt-fix-gen_lex_hash-not-found.patch \
     file://0013-c11_atomics.patch \
-    file://0014-clang_version_header_conflict.patch \
-    file://0015-fix-arm-atomic.patch \
 "
 
-SRC_URI[md5sum] = "11220d0b94c5c24caa2e1e9eaba38e31"
-SRC_URI[sha256sum] = "39e9723eaf620afd99b0925b2c2a5a50a89110ba50040adf14cce7cf89e5e21b"
+SRC_URI[md5sum] = "b164987e926a4bc61aa1137cb6ecc355"
+SRC_URI[sha256sum] = "21f203d361ee8c6e0f5050f3d0c06f3c5a2b87ac28f39e9503b851084a335039"
 
 PROVIDES += "mysql5-native"
 DEPENDS = "ncurses-native zlib-native bison-native"

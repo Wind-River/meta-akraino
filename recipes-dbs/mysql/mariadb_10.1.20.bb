@@ -14,9 +14,8 @@
 #  limitations under the License.
 
 require mariadb.inc
-inherit native
 
-LIC_FILES_CHKSUM = "file://COPYING;md5=b1becf0cfa3366e0f4d854d1d264f311"
+LIC_FILES_CHKSUM = "file://COPYING;md5=751419260aa954499f7abaabaa882bbe"
 
 SRC_URI = " \
     http://archive.mariadb.org/${BP}/source/${BP}.tar.gz \
@@ -34,26 +33,33 @@ SRC_URI = " \
     file://0012-sql-CMakeLists.txt-fix-gen_lex_hash-not-found.patch \
     file://0013-c11_atomics.patch \
     file://0014-clang_version_header_conflict.patch \
-    file://0015-fix-arm-atomic.patch \
 "
 
-SRC_URI[md5sum] = "11220d0b94c5c24caa2e1e9eaba38e31"
-SRC_URI[sha256sum] = "39e9723eaf620afd99b0925b2c2a5a50a89110ba50040adf14cce7cf89e5e21b"
+SRC_URI[md5sum] = "623226918fd711e414ad240287284b5b"
+SRC_URI[sha256sum] = "c24e83f24d674d9912319f9e9422f093c8ca6be1721a4380cbd74792b89ba0b9"
 
-PROVIDES += "mysql5-native"
-DEPENDS = "ncurses-native zlib-native bison-native"
+EXTRA_OECMAKE += "-DSTACK_DIRECTION=-1"
 
-RDEPENDS_${PN} = ""
-PACKAGES = ""
-EXTRA_OEMAKE = ""
+DEPENDS += "mariadb-native bison-native openssl ncurses zlib readline libaio libevent libxml2"
 
-do_install() {
-    oe_runmake 'DESTDIR=${D}' install
+PROVIDES += "mysql5 libmysqlclient"
 
-    install -d ${D}${bindir}
-    install -m 0755 sql/gen_lex_hash ${D}${bindir}/
-    install -m 0755 sql/gen_lex_token ${D}${bindir}/
-    install -m 0755 extra/comp_err ${D}${bindir}/
-    install -m 0755 scripts/comp_sql ${D}${bindir}/
-}
+RPROVIDES_${PN} += "mysql5"
+RREPLACES_${PN} += "mysql5"
+RCONFLICTS_${PN} += "mysql5"
 
+RPROVIDES_${PN}-dbg += "mysql5-dbg"
+RREPLACES_${PN}-dbg += "mysql5-dbg"
+RCONFLICTS_${PN}-dbg += "mysql5-dbg"
+
+RPROVIDES_${PN}-leftovers += "mysql5-leftovers"
+RREPLACES_${PN}-leftovers += "mysql5-leftovers"
+RCONFLICTS_${PN}-leftovers += "mysql5-leftovers"
+
+RPROVIDES_${PN}-client += "mysql5-client"
+RREPLACES_${PN}-client += "mysql5-client"
+RCONFLICTS_${PN}-client += "mysql5-client"
+
+RPROVIDES_${PN}-server += "mysql5-server"
+RREPLACES_${PN}-server += "mysql5-server"
+RCONFLICTS_${PN}-server += "mysql5-server"

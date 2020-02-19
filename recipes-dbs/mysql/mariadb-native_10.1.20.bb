@@ -16,7 +16,7 @@
 require mariadb.inc
 inherit native
 
-LIC_FILES_CHKSUM = "file://COPYING;md5=b1becf0cfa3366e0f4d854d1d264f311"
+LIC_FILES_CHKSUM = "file://COPYING;md5=751419260aa954499f7abaabaa882bbe"
 
 SRC_URI = " \
     http://archive.mariadb.org/${BP}/source/${BP}.tar.gz \
@@ -34,11 +34,10 @@ SRC_URI = " \
     file://0012-sql-CMakeLists.txt-fix-gen_lex_hash-not-found.patch \
     file://0013-c11_atomics.patch \
     file://0014-clang_version_header_conflict.patch \
-    file://0015-fix-arm-atomic.patch \
 "
 
-SRC_URI[md5sum] = "11220d0b94c5c24caa2e1e9eaba38e31"
-SRC_URI[sha256sum] = "39e9723eaf620afd99b0925b2c2a5a50a89110ba50040adf14cce7cf89e5e21b"
+SRC_URI[md5sum] = "623226918fd711e414ad240287284b5b"
+SRC_URI[sha256sum] = "c24e83f24d674d9912319f9e9422f093c8ca6be1721a4380cbd74792b89ba0b9"
 
 PROVIDES += "mysql5-native"
 DEPENDS = "ncurses-native zlib-native bison-native"
