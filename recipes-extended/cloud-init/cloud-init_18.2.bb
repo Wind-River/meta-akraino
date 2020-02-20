@@ -45,7 +45,6 @@ SRC_URI = " \
     file://rh/cloud-init-centos-user.patch  \
     file://rh/cloud-init-17.1-no-override-default-network.patch \
     \
-    file://distros-rhel.py-changes-for-wrl.patch \
     file://cloud-init-local.service-remove-restorecon-and-fix-t.patch \
 "
 
