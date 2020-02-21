@@ -41,6 +41,7 @@ RDEPENDS_${PN}-base = "\
     caas-lcm \
     caas-logging \
     caas-security \
+    cdrkit \
     ceph-ansible \
     cloud-init \
     cloud-utils-growpart \
