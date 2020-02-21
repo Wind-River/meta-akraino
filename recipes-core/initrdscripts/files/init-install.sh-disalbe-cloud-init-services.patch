@@ -1,0 +1,123 @@
+From bf4c1a75d003e5a9deb9363e4f35312f0d1f0470 Mon Sep 17 00:00:00 2001
+From: Jackie Huang <jackie.huang@windriver.com>
+Date: Fri, 21 Feb 2020 15:58:32 +0800
+Subject: [PATCH] install.sh: disalbe cloud-init services and some improvemnts
+
+- disalbe cloud-init services
+- use dd instead of cp
+- remove auto mounter rules
+
+Signed-off-by: Jackie Huang <jackie.huang@windriver.com>
+---
+ install.sh | 51 +++++++++++++++++++++++++++++++++++++++------------
+ 1 file changed, 39 insertions(+), 12 deletions(-)
+
+diff --git a/install.sh b/install.sh
+index ddb1440..a49b45d 100644
+--- a/install.sh
++++ b/install.sh
+@@ -214,7 +214,7 @@ fi
+ 
+ echo "Creating rootfs partition on $rootfs"
+ [ $grub_version -eq 0 ] && pname='primary' || pname='root'
+-parted ${device} -s mkpart $pname xfs $rootfs_start $rootfs_end
++parted ${device} -s mkpart $pname ext4 $rootfs_start $rootfs_end
+ 
+ #echo "Creating swap partition on $swap"
+ #[ $grub_version -eq 0 ] && pname='primary' || pname='swap'
+@@ -222,7 +222,7 @@ parted ${device} -s mkpart $pname xfs $rootfs_start $rootfs_end
+ 
+ echo "Creating data partition on $data"
+ [ $grub_version -eq 0 ] && pname='primary' || pname='data'
+-parted ${device} -s mkpart $pname xfs $data_start 100%
++parted ${device} -s mkpart $pname ext4 $data_start 100%
+ 
+ parted ${device} print
+ 
+@@ -236,8 +236,12 @@ done
+ echo "Formatting $bootfs to ext3..."
+ mkfs.ext3 $bootfs
+ 
+-echo "Formatting $rootfs to xfs..."
+-mkfs.xfs -f $rootfs
++echo "Formatting $rootfs to ext4..."
++mkfs.ext4 $rootfs
++
++echo "Formatting $data to ext4..."
++mkfs.ext4 $data
++
+ 
+ #echo "Formatting swap partition...($swap)"
+ #mkswap $swap
+@@ -245,22 +249,28 @@ mkfs.xfs -f $rootfs
+ mkdir /tgt_root
+ mkdir /src_root
+ mkdir -p /boot
+-
+-# Handling of the target root partition
+-mount $rootfs /tgt_root
++mkdir -p /tgt_data
+ 
+ if [ ! -f /run/media/$1/$2 ]; then
+     mkdir -p /run/media/$1
+     mount /dev/$1 /run/media/$1
+ fi
+ 
++# Handling of the target root partition
++mount $rootfs /tgt_root
++mount $data /tgt_data
++
+ #mount -o rw,loop,noatime,nodiratime /run/media/$1/$2 /src_root
+-qemu-nbd -c /dev/nbd0 -r /run/media/$1/$2
+-parted /dev/nbd0 print
++#qemu-nbd -c /dev/nbd0 -r /run/media/$1/$2
++cp /run/media/$1/$2 /tgt_data/guest-image.img
++qemu-nbd -c /dev/nbd0 /tgt_data/guest-image.img
++
+ mount /dev/nbd0p2 /src_root
+ 
+ echo "Copying rootfs files..."
+ cp -a /src_root/* /tgt_root
++#dd if=/dev/nbd0p2 of=$rootfs bs=1M
++
+ if [ -d /tgt_root/etc/ ] ; then
+     if [ $grub_version -ne 0 ] ; then
+         boot_uuid=$(blkid -o value -s UUID ${bootfs})
+@@ -280,14 +290,31 @@ if [ -d /tgt_root/etc/ ] ; then
+     fi
+ fi
+ 
++#echo "Extending partition and filesystem size"
++#growpart ${device} 1
++
++echo "Disabling cloud-init services on this node"
++chroot /tgt_root /bin/systemctl --no-reload disable cloud-config.service
++chroot /tgt_root /bin/systemctl --no-reload disable cloud-final.service
++chroot /tgt_root /bin/systemctl --no-reload disable cloud-init.service
++chroot /tgt_root /bin/systemctl --no-reload disable cloud-init-local.service
++
++# remove the auto mounter
++rm -f /tgt_root/etc/udev/rules.d/automount.rules
++rm -f /tgt_root/etc/udev/scripts/mount*
++
++rm -f /src_root/etc/udev/rules.d/automount.rules
++rm -f /src_root/etc/udev/scripts/mount*
++
++umount /src_root
++qemu-nbd -d /dev/nbd0
++
+ echo "Copying cloud guest image"
+ IMAGE_DIR="/tgt_root/opt/images"
+ mkdir -p $IMAGE_DIR
+-cp -f /run/media/$1/$2 $IMAGE_DIR/guest-image.img
++mv /tgt_data/guest-image.img $IMAGE_DIR/guest-image.img
+ 
+ umount /tgt_root
+-umount /src_root
+-qemu-nbd -d /dev/nbd0
+ 
+ echo "Looking for kernels to use as boot target.."
+ # Find kernel to boot to
+-- 
+2.7.4
+

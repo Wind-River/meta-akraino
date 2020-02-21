@@ -18,15 +18,18 @@ FILESEXTRAPATHS_prepend := "${THISDIR}/files:"
 SRC_URI += "file://init-install.sh-fix-rootfs.img-not-found-issue.patch;apply=no \
             file://init-install.sh-copy-the-guest-image.img-for-REC-dep.patch;apply=no \
             file://init-install.sh-changes-for-akraino-REC-deployment.patch;apply=no \
+            file://init-install.sh-disalbe-cloud-init-services.patch;apply=no \
 "
 
 do_install_append () {
 	patch ${D}/init.d/install.sh ${WORKDIR}/init-install.sh-fix-rootfs.img-not-found-issue.patch
 	patch ${D}/init.d/install.sh ${WORKDIR}/init-install.sh-copy-the-guest-image.img-for-REC-dep.patch
 	patch ${D}/init.d/install.sh ${WORKDIR}/init-install.sh-changes-for-akraino-REC-deployment.patch
+	patch ${D}/init.d/install.sh ${WORKDIR}/init-install.sh-disalbe-cloud-init-services.patch
 }
 
 RDEPENDS_${PN} += "\
+    cloud-utils-growpart \
     xfsprogs-mkfs \
     util-linux-mount \
     qemu-img \
