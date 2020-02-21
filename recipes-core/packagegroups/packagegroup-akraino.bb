@@ -43,6 +43,7 @@ RDEPENDS_${PN}-base = "\
     caas-security \
     ceph-ansible \
     cloud-init \
+    cloud-utils-growpart \
     cm-plugins \
     config-encoder-macros \
     config-manager \
